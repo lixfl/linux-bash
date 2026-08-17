@@ -168,26 +168,15 @@ server-toolkit/
 - 资源统计
 - 快速运行常用服务（Nginx/MySQL/Redis/PostgreSQL/MongoDB）
 
-### 15. Yunzai 机器人部署 (yunzai)
-- 一键安装 Yunzai + NapCat（全自动）
-- 环境检查（架构/内存/磁盘/依赖命令）
-- 系统依赖安装（ffmpeg/Chrome依赖/中文字体，自动适配 apt/dnf/apk/pacman）
-- Node.js 环境（NVM + Node 24 + PNPM + 淘宝源）
-- Valkey/Redis 安装（valkey 优先，redis 兜底）
-- Yunzai 安装（git.trss.me 源，GitHub 镜像兜底）
-- NapCat 安装（自动识别 amd64/arm64，Rootless 模式，含 Linux QQ + TUI-CLI）
-- 启动管理（screen 后台启动 Yunzai，napcat CLI 启动）
-- 运行状态查看与日志
-
-### 16. 机器人框架一键安装 (botframework)
-- 13 个主流框架：AstrBot / NoneBot2 / Koishi / Mirai / LangBot / qq-ai-bot / Wechaty / nanobot / LobeChat / OpenClaw / Dify / n8n / Lagrange.Core
+### 15. 机器人框架一键安装 (botframework)
+- 14 个主流框架：AstrBot / NoneBot2 / Koishi / Mirai / LangBot / qq-ai-bot / Yunzai / Wechaty / nanobot / LobeChat / OpenClaw / Dify / n8n / Lagrange.Core
 - 自动配置运行环境（Python 3.10+ / Node.js 18+ / Java 17+ / Docker / .NET）
 - 自动安装 uv / pipx / npm 国内源
 - 分类展示：机器人框架 / AI平台工作流 / 协议端，每种框架提供 Docker 和原生两种部署方式
 - 统一安装目录 ~/bots/，状态一键查看
 - Docker 部署自动配置时区、端口映射、重启策略、数据卷
 
-### 17. AI Agent 一键安装 (aiagent)
+### 16. AI Agent 一键安装 (aiagent)
 - 4 个 CLI 编程助手：DeepSeek Harness / Claude Code / OpenAI Codex / PenguinHarness
 - 3 个 Python Agent 框架：LangGraph / CrewAI / AutoGen
 - 自动配置 Node.js 20+ / Python 3.11+ / uv 环境
@@ -195,7 +184,7 @@ server-toolkit/
 - Python 框架自动创建虚拟环境 + 示例代码
 - 统一项目目录 ~/ai-agents/，状态一键查看
 
-### 18. 一键 DD 重装系统 (reinstall)
+### 17. 一键 DD 重装系统 (reinstall)
 > ⚠️ 危险操作：将清除整个硬盘所有数据！
 
 - 重装为 Linux（Ubuntu/Debian/CentOS/Rocky/Alma/Alpine/Arch/Kali 等 12 种）

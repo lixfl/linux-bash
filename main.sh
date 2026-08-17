@@ -36,7 +36,6 @@ MODULES=(
     "cleanup:系统清理"
     "network:网络诊断"
     "docker:Docker管理"
-    "yunzai:Yunzai机器人"
     "botframework:机器人框架"
     "aiagent:AI Agent"
     "reinstall:一键DD重装系统"

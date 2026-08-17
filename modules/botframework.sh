@@ -352,6 +352,20 @@ botframework_qqai() {
     echo "  访问: http://$(hostname -I 2>/dev/null | awk '{print $1}'):${port}"
 }
 
+
+# ============================================================
+#  7. Yunzai
+# ============================================================
+botframework_yunzai() {
+    header "安装 Yunzai 机器人"
+    echo "  TRSS Yunzai + NapCat(QQ) + Valkey/Redis 全自动部署"
+    echo "  自动识别系统/架构，安装 Node.js/Redis/依赖"
+    echo ""
+    local mod_dir
+    mod_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    source "$mod_dir/yunzai.sh"
+    yunzai_install_all
+}
 # ============================================================
 #  状态查看
 # ============================================================
@@ -710,19 +724,20 @@ botframework_menu() {
         echo "  4) Mirai (MCL)  (QQ, Java, 插件成熟)"
         echo "  5) LangBot      (大模型多平台, Python, Docker)"
         echo "  6) qq-ai-bot    (轻量QQ AI, Docker/Python)"
-        echo "  7) Wechaty      (微信, Node.js, Docker/npm)"
-        echo "  8) nanobot      (超轻量AI助理, Python, <100MB)"
+        echo "  7) Yunzai       (QQ机器人, Node.js, 全自动部署)"
+        echo "  8) Wechaty      (微信, Node.js, Docker/npm)"
+        echo "  9) nanobot      (超轻量AI助理, Python, <100MB)"
         echo ""
         echo "  ── AI 平台 / 工作流 ──"
-        echo "  9) LobeChat     (AI聊天工作台, Docker)"
-        echo " 10) OpenClaw     (AI Agent平台, Docker)"
-        echo " 11) Dify         (LLM应用开发, Docker Compose)"
-        echo " 12) n8n          (工作流自动化, Docker)"
+        echo " 10) LobeChat     (AI聊天工作台, Docker)"
+        echo " 11) OpenClaw     (AI Agent平台, Docker)"
+        echo " 12) Dify         (LLM应用开发, Docker Compose)"
+        echo " 13) n8n          (工作流自动化, Docker)"
         echo ""
         echo "  ── 协议端 ──"
-        echo " 13) Lagrange.Core (NTQQ OneBot协议端, Docker/二进制)"
+        echo " 14) Lagrange.Core (NTQQ OneBot协议端, Docker/二进制)"
         echo ""
-        echo " 14) 查看已安装状态"
+        echo " 15) 查看已安装状态"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -734,14 +749,15 @@ botframework_menu() {
             4)  botframework_mirai; pause ;;
             5)  botframework_langbot; pause ;;
             6)  botframework_qqai; pause ;;
-            7)  botframework_wechaty; pause ;;
-            8)  botframework_nanobot; pause ;;
-            9)  botframework_lobechat; pause ;;
-            10) botframework_openclaw; pause ;;
-            11) botframework_dify; pause ;;
-            12) botframework_n8n; pause ;;
-            13) botframework_lagrange; pause ;;
-            14) botframework_status; pause ;;
+            7)  botframework_yunzai; pause ;;
+            8)  botframework_wechaty; pause ;;
+            9)  botframework_nanobot; pause ;;
+            10) botframework_lobechat; pause ;;
+            11) botframework_openclaw; pause ;;
+            12) botframework_dify; pause ;;
+            13) botframework_n8n; pause ;;
+            14) botframework_lagrange; pause ;;
+            15) botframework_status; pause ;;
             0)  break ;;
             *)  warn "无效选项" ;;
         esac
