@@ -322,6 +322,55 @@ security_auto_harden() {
     success "一键加固完成，建议运行安全审计确认"
 }
 
+
+# ============================================================
+#  SSH 密钥管理
+# ============================================================
+security_ssh_key() {
+    header "SSH 密钥管理"
+    echo "  1) 生成 SSH 密钥对"
+    echo "  2) 查看公钥"
+    echo "  3) 禁用密码登录 (仅密钥)"
+    echo "  4) 启用密码登录"
+    echo "  0) 返回"
+    local opt
+    opt="$(ask "选择" "1")"
+    case "$opt" in
+        1)
+            local key_type key_name
+            key_type="$(ask "密钥类型 (ed25519/rsa)" "ed25519")"
+            key_name="$(ask "密钥文件名" "id_${key_type}")"
+            ssh-keygen -t "$key_type" -f "$HOME/.ssh/$key_name" -N ""
+            success "密钥已生成: $HOME/.ssh/$key_name"
+            echo "  公钥: $(cat $HOME/.ssh/${key_name}.pub)"
+            ;;
+        2)
+            echo "  公钥列表:"
+            ls -1 "$HOME/.ssh/"*.pub 2>/dev/null | while read f; do
+                echo "  --- $(basename $f) ---"
+                cat "$f"
+            done
+            ;;
+        3)
+            require_root || return 1
+            warn "将禁用 SSH 密码登录，确保已配置密钥并测试通过！"
+            confirm "确认禁用密码登录?" "n" || return 0
+            sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+            sed -i 's/^#*PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+            svc_restart sshd 2>/dev/null || svc_restart ssh 2>/dev/null
+            success "已禁用密码登录，仅允许密钥登录"
+            ;;
+        4)
+            require_root || return 1
+            sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+            svc_restart sshd 2>/dev/null || svc_restart ssh 2>/dev/null
+            success "已启用密码登录"
+            ;;
+        0) return 0 ;;
+        *) warn "无效选项" ;;
+    esac
+}
+
 security_menu() {
     while true; do
         header "安全加固"
@@ -331,6 +380,7 @@ security_menu() {
         echo "  4) 密码策略"
         echo "  5) 安全审计"
         echo "  6) 一键安全加固"
+        echo "  7) SSH 密钥管理"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -342,6 +392,7 @@ security_menu() {
             4) security_password_policy; pause ;;
             5) security_audit; pause ;;
             6) security_auto_harden; pause ;;
+            7) security_ssh_key; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac

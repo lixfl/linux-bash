@@ -196,7 +196,13 @@ devtools_menu() {
         echo "  2) Mise 多语言版本管理"
         echo "  3) NextTrace 可视化路由"
         echo "  4) Speedtest CLI 测速"
-        echo "  5) 检查已安装工具"
+        echo "  5) Java (sdkman 多版本)"
+        echo "  6) Go 语言"
+        echo "  7) Rust"
+        echo "  8) .NET SDK"
+        echo "  9) K3s (轻量K8s)"
+        echo " 10) MinIO (对象存储)"
+        echo " 11) 检查已安装工具"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -206,7 +212,13 @@ devtools_menu() {
             2) devtools_mise; pause ;;
             3) devtools_nexttrace; pause ;;
             4) devtools_speedtest; pause ;;
-            5) devtools_check; pause ;;
+            5) devtools_java; pause ;;
+            6) devtools_go; pause ;;
+            7) devtools_rust; pause ;;
+            8) devtools_dotnet; pause ;;
+            9) devtools_k3s; pause ;;
+            10) devtools_minio; pause ;;
+            11) devtools_check; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac

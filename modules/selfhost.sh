@@ -176,6 +176,92 @@ EOF
     echo "  首次访问完成初始化设置"
 }
 
+
+# ============================================================
+#  7. qBittorrent
+# ============================================================
+selfhost_qbittorrent() {
+    header "安装 qBittorrent"
+    echo "  BT 下载器，Web UI 管理"
+    _ensure_docker || return 1
+    mkdir -p "$SELFHOST_BASE/qbittorrent/config" "$SELFHOST_BASE/qbittorrent/downloads"
+    local port
+    port="$(ask "WebUI端口" "8080")"
+    step "启动 qBittorrent"
+    docker run -d \
+        --name qbittorrent \
+        -p "${port}:8080" \
+        -p 6881:6881 -p 6881:6881/udp \
+        -e TZ=Asia/Shanghai \
+        -e WEBUI_PORT=8080 \
+        -v "$SELFHOST_BASE/qbittorrent/config:/config" \
+        -v "$SELFHOST_BASE/qbittorrent/downloads:/downloads" \
+        --restart=always \
+        lscr.io/linuxserver/qbittorrent:latest
+    sleep 3
+    success "qBittorrent 部署完成"
+    echo "  WebUI: http://$(hostname -I 2>/dev/null | awk '{print $1}'):${port}"
+    echo "  默认账号: admin / adminadmin"
+    echo "  下载目录: $SELFHOST_BASE/qbittorrent/downloads"
+}
+
+# ============================================================
+#  8. Aria2
+# ============================================================
+selfhost_aria2() {
+    header "安装 Aria2"
+    echo "  多协议下载器 (HTTP/FTP/BT/磁力)，含 Web UI"
+    _ensure_docker || return 1
+    mkdir -p "$SELFHOST_BASE/aria2/config" "$SELFHOST_BASE/aria2/downloads"
+    local port rpc_port
+    port="$(ask "WebUI端口" "6880")"
+    rpc_port="$(ask "RPC端口" "6800")"
+    step "启动 Aria2 + AriaNg WebUI"
+    docker run -d \
+        --name aria2 \
+        -p "${port}:80" -p "${rpc_port}:6800" \
+        -e TZ=Asia/Shanghai \
+        -e RPC_SECRET=aria2123 \
+        -v "$SELFHOST_BASE/aria2/config:/config" \
+        -v "$SELFHOST_BASE/aria2/downloads:/downloads" \
+        --restart=always \
+        p3terx/aria2-pro
+    sleep 3
+    success "Aria2 部署完成"
+    echo "  WebUI: http://$(hostname -I 2>/dev/null | awk '{print $1}'):${port}"
+    echo "  RPC 密钥: aria2123"
+    echo "  下载目录: $SELFHOST_BASE/aria2/downloads"
+}
+
+# ============================================================
+#  9. Navidrome
+# ============================================================
+selfhost_navidrome() {
+    header "安装 Navidrome"
+    echo "  自建音乐流媒体服务器 (Subsonic 兼容)"
+    _ensure_docker || return 1
+    local music_dir
+    music_dir="$(ask "音乐目录" "$HOME/music")"
+    mkdir -p "$music_dir" "$SELFHOST_BASE/navidrome/data"
+    local port
+    port="$(ask "Web端口" "4533")"
+    step "启动 Navidrome"
+    docker run -d \
+        --name navidrome \
+        -p "${port}:4533" \
+        -e TZ=Asia/Shanghai \
+        -e ND_MUSICFOLDER=/music \
+        -v "$SELFHOST_BASE/navidrome/data:/data" \
+        -v "$music_dir:/music" \
+        --restart=always \
+        deluan/navidrome:latest
+    sleep 3
+    success "Navidrome 部署完成"
+    echo "  访问: http://$(hostname -I 2>/dev/null | awk '{print $1}'):${port}"
+    echo "  音乐目录: $music_dir"
+    echo "  首次访问创建管理员账号"
+}
+
 # ============================================================
 #  状态查看
 # ============================================================
@@ -184,7 +270,7 @@ selfhost_status() {
     echo ""
     if has_cmd docker; then
         section "Docker 容器"
-        for c in alist filebrowser vaultwarden jellyfin memos gitea; do
+        for c in alist filebrowser vaultwarden jellyfin memos gitea qbittorrent aria2 navidrome; do
             docker inspect "$c" &>/dev/null && {
                 local status
                 status="$(docker inspect -f '{{.State.Status}}' "$c" 2>/dev/null)"
@@ -211,7 +297,10 @@ selfhost_menu() {
         echo "  4) Jellyfin     (媒体服务器)"
         echo "  5) Memos        (备忘录/微博客)"
         echo "  6) Gitea        (自建Git服务)"
-        echo "  7) 查看已安装状态"
+        echo "  7) qBittorrent  (BT下载器)"
+        echo "  8) Aria2        (多协议下载器)"
+        echo "  9) Navidrome    (音乐流媒体)"
+        echo " 10) 查看已安装状态"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -223,7 +312,10 @@ selfhost_menu() {
             4) selfhost_jellyfin; pause ;;
             5) selfhost_memos; pause ;;
             6) selfhost_gitea; pause ;;
-            7) selfhost_status; pause ;;
+            7) selfhost_qbittorrent; pause ;;
+            8) selfhost_aria2; pause ;;
+            9) selfhost_navidrome; pause ;;
+            10) selfhost_status; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac

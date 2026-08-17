@@ -245,6 +245,60 @@ monitor_report() {
 }
 
 # ---- 模块菜单 ----
+
+# ============================================================
+#  告警通知推送
+# ============================================================
+monitor_notify() {
+    header "告警通知配置"
+    echo "  支持 Bark / Telegram / 钉钉 / 企业微信"
+    echo ""
+    local conf="$HOME/.server-toolkit/notify.conf"
+    mkdir -p "$(dirname "$conf")"
+    echo "  1) 配置 Bark (iOS)"
+    echo "  2) 配置 Telegram Bot"
+    echo "  3) 配置钉钉机器人"
+    echo "  4) 配置企业微信"
+    echo "  5) 发送测试消息"
+    echo "  0) 返回"
+    local opt
+    opt="$(ask "选择" "1")"
+    case "$opt" in
+        1)
+            local bark_key
+            bark_key="$(ask "Bark Key (https://api.day.app/KEY)" "")"
+            [ -n "$bark_key" ] && echo "BARK_URL=https://api.day.app/$bark_key" > "$conf" && success "Bark 已配置"
+            ;;
+        2)
+            local tg_token tg_chat
+            tg_token="$(ask "Bot Token" "")"
+            tg_chat="$(ask "Chat ID" "")"
+            [ -n "$tg_token" ] && echo "TG_TOKEN=$tg_token" > "$conf" && echo "TG_CHAT=$tg_chat" >> "$conf" && success "Telegram 已配置"
+            ;;
+        3)
+            local dd_webhook
+            dd_webhook="$(ask "钉钉 Webhook URL" "")"
+            [ -n "$dd_webhook" ] && echo "DD_WEBHOOK=$dd_webhook" > "$conf" && success "钉钉已配置"
+            ;;
+        4)
+            local wx_webhook
+            wx_webhook="$(ask "企微 Webhook URL" "")"
+            [ -n "$wx_webhook" ] && echo "WX_WEBHOOK=$wx_webhook" > "$conf" && success "企微已配置"
+            ;;
+        5)
+            [ -f "$conf" ] || { warn "未配置通知渠道"; return 1; }
+            source "$conf"
+            local msg="服务器告警测试 - $(hostname) - $(date '+%Y-%m-%d %H:%M:%S')"
+            [ -n "${BARK_URL:-}" ] && curl -s "$BARK_URL/$msg" >/dev/null && success "Bark 已发送"
+            [ -n "${TG_TOKEN:-}" ] && curl -s "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" -d "chat_id=${TG_CHAT}&text=$msg" >/dev/null && success "Telegram 已发送"
+            [ -n "${DD_WEBHOOK:-}" ] && curl -s "$DD_WEBHOOK" -H "Content-Type: application/json" -d "{"msgtype":"text","text":{"content":"$msg"}}" >/dev/null && success "钉钉已发送"
+            [ -n "${WX_WEBHOOK:-}" ] && curl -s "$WX_WEBHOOK" -H "Content-Type: application/json" -d "{"msgtype":"text","text":{"content":"$msg"}}" >/dev/null && success "企微已发送"
+            ;;
+        0) return 0 ;;
+        *) warn "无效选项" ;;
+    esac
+}
+
 monitor_menu() {
     while true; do
         header "系统监控"
@@ -254,6 +308,7 @@ monitor_menu() {
         echo "  4) 监听端口"
         echo "  5) 资源告警检测"
         echo "  6) 生成监控报告"
+        echo "  7) 告警通知配置 (Bark/TG/钉钉/企微)"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -265,6 +320,7 @@ monitor_menu() {
             4) monitor_ports; pause ;;
             5) monitor_alert; pause ;;
             6) monitor_report; pause ;;
+            7) monitor_notify; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac

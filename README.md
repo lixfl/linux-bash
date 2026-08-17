@@ -194,14 +194,34 @@ server-toolkit/
 - 统一数据目录 ~/ai-stack/，状态一键查看
 
 ### 19. DevOps 可视化工具 (devops)
-- 5 个工具：Portainer / Nginx Proxy Manager / Uptime Kuma / Netdata / Glances
+- 7 个工具：Portainer / Nginx Proxy Manager / Uptime Kuma / Netdata / Glances / Cockpit / GoAccess
 - Docker 一键部署，自动配置时区和数据卷
 - 统一数据目录 ~/devops/，状态一键查看
 
 ### 20. 自建服务 (selfhost)
-- 6 个服务：Alist / FileBrowser / Vaultwarden / Jellyfin / Memos / Gitea
+- 9 个服务：Alist / FileBrowser / Vaultwarden / Jellyfin / Memos / Gitea / qBittorrent / Aria2 / Navidrome
 - Docker 一键部署，自动配置时区和数据卷
 - 统一数据目录 ~/selfhost/，状态一键查看
+
+### 4. 数据库服务 (database)
+- MySQL/MariaDB 安装 + 远程访问 + 安全配置
+- PostgreSQL 安装 + pgvector + 远程访问
+- Redis 安装 + 密码 + AOF 持久化
+- MongoDB 安装 + 认证 + 远程访问
+- 统一状态查看
+
+### 5. Web 服务环境 (webserver)
+- Nginx 一键安装
+- Caddy 一键安装（自动 HTTPS）
+- PHP 多版本（7.4/8.1/8.2/8.3，ondrej PPA）
+- LNMP 一键安装（Nginx+MySQL+PHP）
+- Nginx 虚拟主机配置自动生成
+
+### 16. 代理工具 (proxy)
+- Xray 代理核心（VMess/VLESS/Trojan）
+- 3X-UI 管理面板
+- AdGuard Home（广告过滤+私有 DNS）
+- WireGuard VPN（angristan/Nyr 脚本）
 
 ### 21. 一键 DD 重装系统 (reinstall)
 > ⚠️ 危险操作：将清除整个硬盘所有数据！

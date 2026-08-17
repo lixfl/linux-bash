@@ -153,6 +153,48 @@ devops_glances() {
     fi
 }
 
+
+# ============================================================
+#  Cockpit
+# ============================================================
+devops_cockpit() {
+    require_root || return 1
+    header "安装 Cockpit"
+    echo "  RedHat 官方 Web 服务器管理面板"
+    if has_cmd cockpit-bridge; then
+        success "Cockpit 已安装"
+        svc_start cockpit 2>/dev/null
+        echo "  访问: https://$(hostname -I 2>/dev/null | awk '{print $1}'):9090"
+        return 0
+    fi
+    pkg_install cockpit
+    svc_enable cockpit 2>/dev/null
+    svc_start cockpit 2>/dev/null
+    success "Cockpit 安装完成"
+    echo "  访问: https://$(hostname -I 2>/dev/null | awk '{print $1}'):9090"
+    echo "  用系统账号登录"
+}
+
+# ============================================================
+#  GoAccess
+# ============================================================
+devops_goaccess() {
+    header "安装 GoAccess"
+    echo "  Nginx/Apache 日志实时可视化分析"
+    if ! has_cmd goaccess; then
+        pkg_install goaccess 2>/dev/null || {
+            step "编译安装 GoAccess"
+            pkg_install build-essential libncursesw5-dev libgeoip-dev libtokyocabinet-dev
+            curl -fsSL https://tar.goaccess.io/goaccess-1.9.3.tar.gz -o /tmp/goaccess.tar.gz
+            tar -xzf /tmp/goaccess.tar.gz -C /tmp
+            cd /tmp/goaccess-* && ./configure --enable-utf8 --enable-geoip=mmdb && make && make install
+        }
+    fi
+    success "GoAccess 安装完成: $(goaccess --version 2>/dev/null | head -1)"
+    echo "  实时分析: goaccess /var/log/nginx/access.log -c"
+    echo "  生成HTML: goaccess /var/log/nginx/access.log -o report.html --log-format=COMBINED"
+}
+
 # ============================================================
 #  状态查看
 # ============================================================
@@ -188,7 +230,9 @@ devops_menu() {
         echo "  3) Uptime Kuma      (服务监控告警)"
         echo "  4) Netdata          (实时性能监控)"
         echo "  5) Glances          (系统监控, Web/CLI)"
-        echo "  6) 查看已安装状态"
+        echo "  6) Cockpit          (Web服务器管理面板)"
+        echo "  7) GoAccess         (日志可视化分析)"
+        echo "  8) 查看已安装状态"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -199,7 +243,9 @@ devops_menu() {
             3) devops_uptime; pause ;;
             4) devops_netdata; pause ;;
             5) devops_glances; pause ;;
-            6) devops_status; pause ;;
+            6) devops_cockpit; pause ;;
+            7) devops_goaccess; pause ;;
+            8) devops_status; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac

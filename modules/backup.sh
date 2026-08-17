@@ -246,6 +246,9 @@ backup_menu() {
         echo "  5) 查看备份列表"
         echo "  6) 恢复备份"
         echo "  7) 清理过期备份"
+        echo "  8) Restic 加密增量备份"
+        echo "  9) rsync 异地备份"
+        echo " 10) Syncthing P2P同步"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -258,6 +261,9 @@ backup_menu() {
             5) backup_list; pause ;;
             6) backup_restore; pause ;;
             7) backup_cleanup; pause ;;
+            8) backup_restic; pause ;;
+            9) backup_rsync; pause ;;
+            10) backup_syncthing; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac
