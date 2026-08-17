@@ -371,6 +371,73 @@ security_ssh_key() {
     esac
 }
 
+
+# ============================================================
+#  Lynis 安全审计
+# ============================================================
+security_lynis() {
+    header "Lynis 安全审计"
+    echo "  系统安全扫描，生成加固建议"
+    if ! has_cmd lynis; then
+        step "安装 Lynis"
+        pkg_install lynis 2>/dev/null || {
+            cd /tmp && curl -fsSL https://github.com/CISOfy/lynis/archive/refs/heads/master.tar.gz -o lynis.tar.gz
+            tar -xzf lynis.tar.gz && mv lynis-master /opt/lynis && ln -sf /opt/lynis/lynis /usr/local/bin/lynis
+        }
+    fi
+    step "运行安全审计 (约1-2分钟)"
+    lynis audit system --quick 2>/dev/null | tee /tmp/lynis-report.txt | tail -30
+    echo ""
+    success "审计完成，完整报告: /tmp/lynis-report.txt"
+    grep -E "Hardening index|Warnings|Suggestions" /tmp/lynis-report.txt 2>/dev/null | sed 's/^/  /'
+}
+
+# ============================================================
+#  rkhunter Rootkit 检测
+# ============================================================
+security_rkhunter() {
+    require_root || return 1
+    header "rkhunter Rootkit 检测"
+    if ! has_cmd rkhunter; then
+        step "安装 rkhunter"
+        pkg_install rkhunter
+    fi
+    step "更新数据库"
+    rkhunter --update 2>/dev/null
+    step "运行扫描"
+    rkhunter --check --skip-keypress --report-warnings-only 2>/dev/null | tee /tmp/rkhunter-report.txt
+    success "扫描完成，报告: /tmp/rkhunter-report.txt"
+}
+
+# ============================================================
+#  SSH 登录告警
+# ============================================================
+security_ssh_alert() {
+    header "SSH 登录告警"
+    echo "  有人 SSH 登录时自动推送通知"
+    local conf="$HOME/.server-toolkit/notify.conf"
+    [ ! -f "$conf" ] && { warn "请先在 监控->告警通知配置 中配置推送渠道"; return 1; }
+    require_root || return 1
+    local script="/usr/local/bin/ssh-login-alert.sh"
+    cat > "$script" <<'EOF'
+#!/bin/bash
+# SSH 登录告警
+[ "$PAM_TYPE" != "open_session" ] && exit 0
+CONF="$HOME/.server-toolkit/notify.conf"
+[ -f "$CONF" ] && source "$CONF"
+MSG="SSH登录: $PAM_USER@$(hostname) from $PAM_RHOST $(date '+%Y-%m-%d %H:%M')"
+[ -n "${BARK_URL:-}" ] && curl -s "$BARK_URL/$MSG" >/dev/null
+[ -n "${TG_TOKEN:-}" ] && curl -s "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" -d "chat_id=${TG_CHAT}&text=$MSG" >/dev/null
+[ -n "${DD_WEBHOOK:-}" ] && curl -s "$DD_WEBHOOK" -H "Content-Type: application/json" -d "{"msgtype":"text","text":{"content":"$MSG"}}" >/dev/null
+[ -n "${WX_WEBHOOK:-}" ] && curl -s "$WX_WEBHOOK" -H "Content-Type: application/json" -d "{"msgtype":"text","text":{"content":"$MSG"}}" >/dev/null
+EOF
+    chmod +x "$script"
+    echo "session optional pam_exec.so /bin/bash $script" >> /etc/pam.d/sshd
+    success "SSH 登录告警已配置"
+    echo "  脚本: $script"
+    echo "  通过 PAM 触发，登录时自动推送"
+}
+
 security_menu() {
     while true; do
         header "安全加固"
@@ -381,6 +448,9 @@ security_menu() {
         echo "  5) 安全审计"
         echo "  6) 一键安全加固"
         echo "  7) SSH 密钥管理"
+        echo "  8) Lynis 安全审计"
+        echo "  9) rkhunter Rootkit检测"
+        echo " 10) SSH登录告警"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -393,6 +463,9 @@ security_menu() {
             5) security_audit; pause ;;
             6) security_auto_harden; pause ;;
             7) security_ssh_key; pause ;;
+            8) security_lynis; pause ;;
+            9) security_rkhunter; pause ;;
+            10) security_ssh_alert; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac

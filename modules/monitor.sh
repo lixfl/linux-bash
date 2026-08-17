@@ -299,6 +299,48 @@ monitor_notify() {
     esac
 }
 
+
+# ============================================================
+#  性能跑分
+# ============================================================
+monitor_benchmark() {
+    header "性能跑分测试"
+    echo "  1) UnixBench (综合性能)"
+    echo "  2) Geekbench 6 (CPU/内存)"
+    echo "  3) fio (磁盘IO)"
+    echo "  4) iperf3 (网络带宽, 需服务端)"
+    echo "  0) 返回"
+    local opt
+    opt="$(ask "选择" "1")"
+    case "$opt" in
+        1)
+            step "安装并运行 UnixBench (约10-20分钟)"
+            pkg_install make gcc libx11-dev libgl1-mesa-dev libxext-dev 2>/dev/null
+            cd /tmp && curl -fsSL https://github.com/kdlucas/byte-unixbench/archive/refs/heads/master.tar.gz -o unixbench.tar.gz
+            tar -xzf unixbench.tar.gz && cd byte-unixbench-master/UnixBench && make && ./Run
+            ;;
+        2)
+            step "下载并运行 Geekbench 6"
+            cd /tmp && curl -fsSL https://cdn.geekbench.com/Geekbench-6.2.1-Linux.tar.gz -o geekbench.tar.gz
+            tar -xzf geekbench.tar.gz && cd Geekbench-*-Linux && ./geekbench6
+            ;;
+        3)
+            if ! has_cmd fio; then pkg_install fio; fi
+            step "运行 fio 磁盘测试 (读写各1G)"
+            fio --name=randwrite --ioengine=libaio --iodepth=32 --rw=randwrite --bs=4k --direct=1 --size=1G --numjobs=1 --runtime=30 --group_reporting
+            fio --name=randread --ioengine=libaio --iodepth=32 --rw=randread --bs=4k --direct=1 --size=1G --numjobs=1 --runtime=30 --group_reporting
+            ;;
+        4)
+            if ! has_cmd iperf3; then pkg_install iperf3; fi
+            local server
+            server="$(ask "服务端IP" "")"
+            [ -n "$server" ] && iperf3 -c "$server" -t 10
+            ;;
+        0) return 0 ;;
+        *) warn "无效选项" ;;
+    esac
+}
+
 monitor_menu() {
     while true; do
         header "系统监控"
@@ -309,6 +351,7 @@ monitor_menu() {
         echo "  5) 资源告警检测"
         echo "  6) 生成监控报告"
         echo "  7) 告警通知配置 (Bark/TG/钉钉/企微)"
+        echo "  8) 性能跑分 (UnixBench/Geekbench/fio/iperf3)"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -321,6 +364,7 @@ monitor_menu() {
             5) monitor_alert; pause ;;
             6) monitor_report; pause ;;
             7) monitor_notify; pause ;;
+            8) monitor_benchmark; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac

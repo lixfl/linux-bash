@@ -195,6 +195,106 @@ devops_goaccess() {
     echo "  生成HTML: goaccess /var/log/nginx/access.log -o report.html --log-format=COMBINED"
 }
 
+
+# ============================================================
+#  Prometheus + Grafana
+# ============================================================
+devops_prometheus() {
+    header "安装 Prometheus + Grafana"
+    echo "  专业监控全套：Node Exporter + Prometheus + Grafana"
+    _ensure_docker || return 1
+    local dir="$DEVOPS_BASE/prometheus"
+    mkdir -p "$dir" && cd "$dir" || return 1
+    local grafana_port prom_port
+    grafana_port="$(ask "Grafana端口" "3000")"
+    prom_port="$(ask "Prometheus端口" "9090")"
+    step "生成配置"
+    cat > prometheus.yml <<EOF
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+EOF
+    cat > docker-compose.yml <<EOF
+version: '3.8'
+services:
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    restart: always
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "${prom_port}:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus_data:/prometheus
+    restart: always
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "${grafana_port}:3000"
+    volumes:
+      - ./grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    restart: always
+EOF
+    step "启动 Prometheus + Grafana"
+    docker compose up -d
+    sleep 5
+    success "Prometheus + Grafana 部署完成"
+    echo "  Grafana: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${grafana_port} (admin/admin123)"
+    echo "  Prometheus: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${prom_port}"
+    echo "  推荐仪表盘ID: 1860 (Node Exporter Full)"
+}
+
+# ============================================================
+#  Loki + Promtail
+# ============================================================
+devops_loki() {
+    header "安装 Loki + Promtail"
+    echo "  轻量日志聚合（Grafana 生态）"
+    _ensure_docker || return 1
+    local dir="$DEVOPS_BASE/loki"
+    mkdir -p "$dir" && cd "$dir" || return 1
+    local loki_port
+    loki_port="$(ask "Loki端口" "3100")"
+    step "生成配置并启动"
+    cat > docker-compose.yml <<EOF
+version: '3.8'
+services:
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    ports:
+      - "${loki_port}:3100"
+    volumes:
+      - ./loki:/etc/loki
+    restart: always
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    restart: always
+EOF
+    docker compose up -d
+    sleep 3
+    success "Loki 部署完成"
+    echo "  Loki: http://localhost:${loki_port}"
+    echo "  在 Grafana 中添加 Loki 数据源即可查询日志"
+}
+
 # ============================================================
 #  状态查看
 # ============================================================
@@ -232,7 +332,9 @@ devops_menu() {
         echo "  5) Glances          (系统监控, Web/CLI)"
         echo "  6) Cockpit          (Web服务器管理面板)"
         echo "  7) GoAccess         (日志可视化分析)"
-        echo "  8) 查看已安装状态"
+        echo "  8) Prometheus+Grafana (专业监控)"
+        echo "  9) Loki+Promtail    (日志聚合)"
+        echo " 10) 查看已安装状态"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -245,7 +347,9 @@ devops_menu() {
             5) devops_glances; pause ;;
             6) devops_cockpit; pause ;;
             7) devops_goaccess; pause ;;
-            8) devops_status; pause ;;
+            8) devops_prometheus; pause ;;
+            9) devops_loki; pause ;;
+            10) devops_status; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac

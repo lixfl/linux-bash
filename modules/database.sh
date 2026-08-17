@@ -148,6 +148,46 @@ database_mongo() {
     echo "  管理: mongosh -u $mongo_user -p $mongo_pwd --authenticationDatabase admin"
 }
 
+
+# ============================================================
+#  数据库管理面板 (Docker)
+# ============================================================
+database_panels() {
+    header "数据库管理面板"
+    echo "  1) phpMyAdmin (MySQL/MariaDB)"
+    echo "  2) pgAdmin (PostgreSQL)"
+    echo "  3) RedisInsight (Redis)"
+    echo "  4) Mongo Express (MongoDB)"
+    echo "  0) 返回"
+    local opt
+    opt="$(ask "选择" "1")"
+    _ensure_docker || return 1
+    case "$opt" in
+        1)
+            local port
+            port="$(ask "端口" "8081")"
+            docker run -d --name phpmyadmin -p "${port}:80" -e PMA_ARBITRARY=1 --restart=always phpmyadmin:latest
+            success "phpMyAdmin: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${port}" ;;
+        2)
+            local port
+            port="$(ask "端口" "8082")"
+            docker run -d --name pgadmin -p "${port}:80" -e PGADMIN_DEFAULT_EMAIL=admin@example.com -e PGADMIN_DEFAULT_PASSWORD=admin123 --restart=always dpage/pgadmin4
+            success "pgAdmin: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${port} (admin@example.com/admin123)" ;;
+        3)
+            local port
+            port="$(ask "端口" "8083")"
+            docker run -d --name redisinsight -p "${port}:5540" --restart=always redislabs/redisinsight:latest
+            success "RedisInsight: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${port}" ;;
+        4)
+            local port
+            port="$(ask "端口" "8084")"
+            docker run -d --name mongo-express -p "${port}:8081" -e ME_CONFIG_MONGODB_URL=mongodb://host.docker.internal:27017 --add-host=host.docker.internal:host-gateway --restart=always mongo-express
+            success "Mongo Express: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${port}" ;;
+        0) return 0 ;;
+        *) warn "无效选项" ;;
+    esac
+}
+
 # ============================================================
 #  状态查看
 # ============================================================
@@ -176,7 +216,8 @@ database_menu() {
         echo "  2) PostgreSQL (含 pgvector)"
         echo "  3) Redis"
         echo "  4) MongoDB"
-        echo "  5) 查看运行状态"
+        echo "  5) 数据库管理面板 (Docker)"
+        echo "  6) 查看运行状态"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -186,7 +227,8 @@ database_menu() {
             2) database_postgres; pause ;;
             3) database_redis; pause ;;
             4) database_mongo; pause ;;
-            5) database_status; pause ;;
+            5) database_panels; pause ;;
+            6) database_status; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac

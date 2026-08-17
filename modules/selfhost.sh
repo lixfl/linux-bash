@@ -262,6 +262,179 @@ selfhost_navidrome() {
     echo "  首次访问创建管理员账号"
 }
 
+
+# ============================================================
+#  10. Nextcloud
+# ============================================================
+selfhost_nextcloud() {
+    header "安装 Nextcloud"
+    echo "  自建网盘/协作平台，支持日历/通讯录/OnlyOffice"
+    _ensure_docker || return 1
+    local dir="$SELFHOST_BASE/nextcloud"
+    mkdir -p "$dir/html" "$dir/db" && cd "$dir" || return 1
+    local port
+    port="$(ask "Web端口" "8080")"
+    step "生成 Docker Compose"
+    cat > docker-compose.yml <<EOF
+version: '3.8'
+services:
+  nextcloud:
+    image: nextcloud:latest
+    container_name: nextcloud
+    ports:
+      - "${port}:80"
+    volumes:
+      - ./html:/var/www/html
+    environment:
+      - MYSQL_HOST=db
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - MYSQL_PASSWORD=nextcloud123
+    depends_on:
+      - db
+    restart: always
+  db:
+    image: mariadb:10.6
+    container_name: nextcloud-db
+    environment:
+      - MYSQL_ROOT_PASSWORD=root123
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - MYSQL_PASSWORD=nextcloud123
+    volumes:
+      - ./db:/var/lib/mysql
+    restart: always
+EOF
+    docker compose up -d
+    sleep 5
+    success "Nextcloud 部署完成"
+    echo "  访问: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${port}"
+}
+
+# ============================================================
+#  11. FreshRSS
+# ============================================================
+selfhost_freshrss() {
+    header "安装 FreshRSS"
+    echo "  轻量 RSS 订阅阅读器"
+    _ensure_docker || return 1
+    mkdir -p "$SELFHOST_BASE/freshrss"
+    local port
+    port="$(ask "Web端口" "8080")"
+    docker run -d --name freshrss -p "${port}:80" -e TZ=Asia/Shanghai         -v "$SELFHOST_BASE/freshrss:/var/www/FreshRSS/data"         --restart=always freshrss/freshrss
+    sleep 3
+    success "FreshRSS 部署完成: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${port}"
+}
+
+# ============================================================
+#  12. Hoppscotch
+# ============================================================
+selfhost_hoppscotch() {
+    header "安装 Hoppscotch"
+    echo "  开源 API 测试工具（Postman 替代）"
+    _ensure_docker || return 1
+    local dir="$SELFHOST_BASE/hoppscotch"
+    mkdir -p "$dir" && cd "$dir" || return 1
+    local port
+    port="$(ask "Web端口" "3000")"
+    step "克隆并启动"
+    git clone --depth 1 https://github.com/hoppscotch/hoppscotch.git . 2>/dev/null || true
+    docker compose up -d 2>/dev/null || {
+        warn "compose 启动失败，使用单容器版"
+        docker run -d --name hoppscotch -p "${port}:3000" --restart=always hoppscotch/hoppscotch:latest
+    }
+    sleep 5
+    success "Hoppscotch 部署完成: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${port}"
+}
+
+# ============================================================
+#  13. Outline
+# ============================================================
+selfhost_outline() {
+    header "安装 Outline"
+    echo "  团队知识库/文档（Notion 替代）"
+    _ensure_docker || return 1
+    local dir="$SELFHOST_BASE/outline"
+    mkdir -p "$dir" && cd "$dir" || return 1
+    local port
+    port="$(ask "Web端口" "3000")"
+    step "生成 Docker Compose"
+    cat > docker-compose.yml <<EOF
+version: '3.8'
+services:
+  outline:
+    image: outlinewiki/outline:latest
+    container_name: outline
+    ports:
+      - "${port}:3000"
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+    restart: always
+  postgres:
+    image: postgres:15
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=outline
+      - POSTGRES_PASSWORD=outline123
+      - POSTGRES_DB=outline
+    restart: always
+  redis:
+    image: redis:alpine
+    restart: always
+EOF
+    cat > .env <<EOF
+NODE_ENV=production
+SECRET_KEY=$(openssl rand -hex 32 2>/dev/null || echo outline-secret-key)
+UTILS_SECRET=$(openssl rand -hex 32 2>/dev/null || echo outline-utils-key)
+DATABASE_URL=postgres://outline:outline123@postgres:5432/outline
+REDIS_URL=redis://redis:6379
+URL=http://localhost:${port}
+EOF
+    docker compose up -d
+    sleep 5
+    success "Outline 部署完成: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${port}"
+    warn "需配置 SLACK/OIDC 登录才能使用，详见 .env"
+}
+
+# ============================================================
+#  14. Linkding
+# ============================================================
+selfhost_linkding() {
+    header "安装 Linkding"
+    echo "  轻量书签管理"
+    _ensure_docker || return 1
+    mkdir -p "$SELFHOST_BASE/linkding"
+    local port
+    port="$(ask "Web端口" "9090")"
+    docker run -d --name linkding -p "${port}:9090" -e TZ=Asia/Shanghai         -v "$SELFHOST_BASE/linkding:/etc/linkding/data"         --restart=always sissbruecker/linkding:latest
+    sleep 3
+    success "Linkding 部署完成: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${port}"
+}
+
+# ============================================================
+#  15. Minecraft 服务器
+# ============================================================
+selfhost_minecraft() {
+    header "安装 Minecraft 服务器"
+    echo "  一键开 MC 服，支持 Java 版"
+    _ensure_docker || return 1
+    mkdir -p "$SELFHOST_BASE/minecraft"
+    local port version memory
+    port="$(ask "游戏端口" "25565")"
+    version="$(ask "版本 (latest/1.20.4等)" "latest")"
+    memory="$(ask "最大内存" "4G")"
+    step "启动 Minecraft 服务器"
+    docker run -d --name minecraft -p "${port}:25565"         -e EULA=TRUE -e VERSION="$version" -e MEMORY="$memory"         -v "$SELFHOST_BASE/minecraft:/data"         --restart=always itzg/minecraft-server
+    sleep 10
+    success "Minecraft 服务器启动中"
+    echo "  地址: $(hostname -I 2>/dev/null|awk '{print $1}'):${port}"
+    echo "  版本: $version, 内存: $memory"
+    echo "  日志: docker logs -f minecraft"
+}
+
 # ============================================================
 #  状态查看
 # ============================================================
@@ -270,7 +443,7 @@ selfhost_status() {
     echo ""
     if has_cmd docker; then
         section "Docker 容器"
-        for c in alist filebrowser vaultwarden jellyfin memos gitea qbittorrent aria2 navidrome; do
+        for c in alist filebrowser vaultwarden jellyfin memos gitea qbittorrent aria2 navidrome nextcloud freshrss hoppscotch outline linkding minecraft; do
             docker inspect "$c" &>/dev/null && {
                 local status
                 status="$(docker inspect -f '{{.State.Status}}' "$c" 2>/dev/null)"
@@ -300,7 +473,13 @@ selfhost_menu() {
         echo "  7) qBittorrent  (BT下载器)"
         echo "  8) Aria2        (多协议下载器)"
         echo "  9) Navidrome    (音乐流媒体)"
-        echo " 10) 查看已安装状态"
+        echo " 10) Nextcloud    (网盘/协作)"
+        echo " 11) FreshRSS     (RSS阅读器)"
+        echo " 12) Hoppscotch   (API测试)"
+        echo " 13) Outline      (知识库/文档)"
+        echo " 14) Linkding     (书签管理)"
+        echo " 15) Minecraft    (游戏服务器)"
+        echo " 16) 查看已安装状态"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -315,7 +494,13 @@ selfhost_menu() {
             7) selfhost_qbittorrent; pause ;;
             8) selfhost_aria2; pause ;;
             9) selfhost_navidrome; pause ;;
-            10) selfhost_status; pause ;;
+            10) selfhost_nextcloud; pause ;;
+            11) selfhost_freshrss; pause ;;
+            12) selfhost_hoppscotch; pause ;;
+            13) selfhost_outline; pause ;;
+            14) selfhost_linkding; pause ;;
+            15) selfhost_minecraft; pause ;;
+            16) selfhost_status; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac

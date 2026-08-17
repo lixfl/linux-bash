@@ -195,6 +195,63 @@ cleanup_all() {
     df -h / | sed 's/^/  /'
 }
 
+
+# ============================================================
+#  日志管理
+# ============================================================
+cleanup_logs() {
+    header "日志管理"
+    echo "  1) 查看大日志文件 (>100M)"
+    echo "  2) 清空 systemd journal (>7天)"
+    echo "  3) 配置 logrotate (Nginx/应用日志)"
+    echo "  4) 清理 /var/log 旧日志"
+    echo "  0) 返回"
+    local opt
+    opt="$(ask "选择" "1")"
+    case "$opt" in
+        1)
+            echo "  大于100M的日志文件:"
+            find /var/log -type f -size +100M -exec ls -lh {} \; 2>/dev/null | awk '{print "  "$5" "$NF}'
+            ;;
+        2)
+            require_root || return 1
+            step "清理7天前的 journal"
+            journalctl --vacuum-time=7d
+            ;;
+        3)
+            require_root || return 1
+            local log_path service
+            log_path="$(ask "日志路径 (如 /var/log/nginx/*.log)" "/var/log/nginx/*.log")"
+            service="$(ask "服务名 (用于命名)" "myapp")"
+            cat > "/etc/logrotate.d/$service" <<EOF
+$log_path {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 root adm
+    sharedscripts
+    postrotate
+        systemctl reload nginx 2>/dev/null || true
+    endscript
+}
+EOF
+            success "logrotate 配置已生成: /etc/logrotate.d/$service"
+            logrotate -d "/etc/logrotate.d/$service" 2>&1 | head -5
+            ;;
+        4)
+            require_root || return 1
+            step "清理 /var/log 下 .gz 和 .1 旧日志"
+            find /var/log -type f \( -name "*.gz" -o -name "*.1" -o -name "*.old" \) -delete 2>/dev/null
+            success "旧日志已清理"
+            ;;
+        0) return 0 ;;
+        *) warn "无效选项" ;;
+    esac
+}
+
 cleanup_menu() {
     while true; do
         header "系统清理"
@@ -205,6 +262,7 @@ cleanup_menu() {
         echo "  5) Docker 清理"
         echo "  6) 查找大文件"
         echo "  7) 一键清理"
+        echo "  8) 日志管理 (logrotate/journal/大文件)"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -217,6 +275,7 @@ cleanup_menu() {
             5) cleanup_docker; pause ;;
             6) cleanup_find_large; pause ;;
             7) cleanup_all; pause ;;
+            8) cleanup_logs; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac

@@ -202,7 +202,11 @@ devtools_menu() {
         echo "  8) .NET SDK"
         echo "  9) K3s (轻量K8s)"
         echo " 10) MinIO (对象存储)"
-        echo " 11) 检查已安装工具"
+        echo " 11) Node.js nvm"
+        echo " 12) Python pyenv"
+        echo " 13) Jenkins (CI/CD)"
+        echo " 14) ttyd (Web终端)"
+        echo " 15) 检查已安装工具"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -218,7 +222,11 @@ devtools_menu() {
             8) devtools_dotnet; pause ;;
             9) devtools_k3s; pause ;;
             10) devtools_minio; pause ;;
-            11) devtools_check; pause ;;
+            11) devtools_nvm; pause ;;
+            12) devtools_pyenv; pause ;;
+            13) devtools_jenkins; pause ;;
+            14) devtools_ttyd; pause ;;
+            15) devtools_check; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac
