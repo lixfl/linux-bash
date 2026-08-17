@@ -295,6 +295,135 @@ EOF
     echo "  在 Grafana 中添加 Loki 数据源即可查询日志"
 }
 
+
+# ============================================================
+#  Harbor 私有镜像仓库
+# ============================================================
+devops_harbor() {
+    header "安装 Harbor"
+    echo "  企业级私有 Docker 镜像仓库"
+    _ensure_docker || return 1
+    local dir="$DEVOPS_BASE/harbor"
+    mkdir -p "$dir" && cd "$dir" || return 1
+    local port hostname
+    port="$(ask "HTTP端口" "8088")"
+    hostname="$(ask "主机名/IP" "$(hostname -I 2>/dev/null|awk '{print $1}')")"
+    step "下载 Harbor"
+    local ver
+    ver="$(curl -s https://api.github.com/repos/goharbor/harbor/releases/latest | grep tag_name | cut -d'"' -f4)"
+    [ -z "$ver" ] && ver="v2.11.0"
+    curl -fsSL "https://github.com/goharbor/harbor/releases/download/${ver}/harbor-offline-installer-${ver}.tgz" -o harbor.tgz
+    tar -xzf harbor.tgz && cd harbor
+    cp harbor.yml.tmpl harbor.yml
+    sed -i "s/^hostname:.*/hostname: ${hostname}/" harbor.yml
+    sed -i "s/^  port: 80/  port: ${port}/" harbor.yml
+    sed -i '/^https:/,/^  port: 443/d' harbor.yml
+    step "安装 Harbor"
+    ./install.sh
+    success "Harbor 部署完成"
+    echo "  访问: http://${hostname}:${port}"
+    echo "  账号: admin / Harbor12345"
+}
+
+# ============================================================
+#  SonarQube 代码质量
+# ============================================================
+devops_sonarqube() {
+    header "安装 SonarQube"
+    echo "  代码质量与安全漏洞检测"
+    _ensure_docker || return 1
+    local dir="$DEVOPS_BASE/sonarqube"
+    mkdir -p "$dir/data" "$dir/extensions" "$dir/logs" "$dir/pgdata" && cd "$dir" || return 1
+    local port
+    port="$(ask "Web端口" "9000")"
+    step "调整系统参数"
+    sysctl -w vm.max_map_count=262144 2>/dev/null
+    step "启动 SonarQube"
+    cat > docker-compose.yml <<EOF
+version: '3.8'
+services:
+  sonarqube:
+    image: sonarqube:community
+    container_name: sonarqube
+    ports:
+      - "${port}:9000"
+    environment:
+      - SONAR_JDBC_URL=jdbc:postgresql://db:5432/sonar
+      - SONAR_JDBC_USERNAME=sonar
+      - SONAR_JDBC_PASSWORD=sonar123
+    volumes:
+      - ./data:/opt/sonarqube/data
+      - ./extensions:/opt/sonarqube/extensions
+      - ./logs:/opt/sonarqube/logs
+    depends_on:
+      - db
+    restart: always
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=sonar
+      - POSTGRES_PASSWORD=sonar123
+      - POSTGRES_DB=sonar
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    restart: always
+EOF
+    docker compose up -d
+    sleep 15
+    success "SonarQube 部署完成"
+    echo "  访问: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${port}"
+    echo "  账号: admin / admin"
+}
+
+# ============================================================
+#  Nexus 制品仓库
+# ============================================================
+devops_nexus() {
+    header "安装 Nexus"
+    echo "  Maven/npm/Docker 私有制品仓库"
+    _ensure_docker || return 1
+    mkdir -p "$DEVOPS_BASE/nexus"
+    local port
+    port="$(ask "Web端口" "8081")"
+    docker run -d --name nexus -p "${port}:8081"         -e TZ=Asia/Shanghai         -v "$DEVOPS_BASE/nexus:/nexus-data"         --restart=always sonatype/nexus3
+    sleep 15
+    success "Nexus 部署完成"
+    echo "  访问: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${port}"
+    echo "  初始密码: $(docker exec nexus cat /nexus-data/admin.password 2>/dev/null || echo '等待启动后查看')"
+}
+
+# ============================================================
+#  Traefik 反向代理
+# ============================================================
+devops_traefik() {
+    header "安装 Traefik"
+    echo "  云原生反向代理，自动 Docker 服务发现"
+    _ensure_docker || return 1
+    local dir="$DEVOPS_BASE/traefik"
+    mkdir -p "$dir" && cd "$dir" || return 1
+    local port dashboard_port
+    port="$(ask "HTTP端口" "80")"
+    dashboard_port="$(ask "Dashboard端口" "8080")"
+    step "生成配置"
+    cat > traefik.yml <<EOF
+api:
+  dashboard: true
+  insecure: true
+entryPoints:
+  web:
+    address: ":80"
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+EOF
+    docker run -d --name traefik         -p "${port}:80" -p "${dashboard_port}:8080"         -v /var/run/docker.sock:/var/run/docker.sock         -v "$dir/traefik.yml:/etc/traefik/traefik.yml"         --restart=always traefik:v3
+    sleep 3
+    success "Traefik 部署完成"
+    echo "  Dashboard: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${dashboard_port}"
+    echo "  容器加标签 traefik.enable=true 即可自动接入"
+}
+
 # ============================================================
 #  状态查看
 # ============================================================
@@ -334,7 +463,11 @@ devops_menu() {
         echo "  7) GoAccess         (日志可视化分析)"
         echo "  8) Prometheus+Grafana (专业监控)"
         echo "  9) Loki+Promtail    (日志聚合)"
-        echo " 10) 查看已安装状态"
+        echo " 10) Harbor          (私有镜像仓库)"
+        echo " 11) SonarQube       (代码质量检测)"
+        echo " 12) Nexus           (制品仓库)"
+        echo " 13) Traefik         (云原生反代)"
+        echo " 14) 查看已安装状态"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -349,7 +482,11 @@ devops_menu() {
             7) devops_goaccess; pause ;;
             8) devops_prometheus; pause ;;
             9) devops_loki; pause ;;
-            10) devops_status; pause ;;
+            10) devops_harbor; pause ;;
+            11) devops_sonarqube; pause ;;
+            12) devops_nexus; pause ;;
+            13) devops_traefik; pause ;;
+            14) devops_status; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac

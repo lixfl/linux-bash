@@ -181,6 +181,148 @@ EOF
     echo "  重载: nginx -t && systemctl reload nginx"
 }
 
+
+# ============================================================
+#  WordPress
+# ============================================================
+webserver_wordpress() {
+    header "安装 WordPress"
+    echo "  最流行的博客/CMS，Docker 一键部署"
+    _ensure_docker || return 1
+    local dir="$WEB_ROOT/wordpress"
+    mkdir -p "$dir" "$WEB_ROOT/wp-db" && cd "$dir" || return 1
+    local port
+    port="$(ask "Web端口" "8080")"
+    step "生成 Docker Compose"
+    cat > docker-compose.yml <<EOF
+version: '3.8'
+services:
+  wordpress:
+    image: wordpress:latest
+    container_name: wordpress
+    ports:
+      - "${port}:80"
+    environment:
+      - WORDPRESS_DB_HOST=db
+      - WORDPRESS_DB_USER=wp
+      - WORDPRESS_DB_PASSWORD=wp123456
+      - WORDPRESS_DB_NAME=wp
+    volumes:
+      - ./html:/var/www/html
+    depends_on:
+      - db
+    restart: always
+  db:
+    image: mysql:8
+    container_name: wp-db
+    environment:
+      - MYSQL_DATABASE=wp
+      - MYSQL_USER=wp
+      - MYSQL_PASSWORD=wp123456
+      - MYSQL_ROOT_PASSWORD=root123456
+    volumes:
+      - $WEB_ROOT/wp-db:/var/lib/mysql
+    restart: always
+EOF
+    docker compose up -d
+    sleep 5
+    success "WordPress 部署完成"
+    echo "  访问: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${port}"
+    echo "  数据库: wp / wp123456"
+}
+
+# ============================================================
+#  Ghost
+# ============================================================
+webserver_ghost() {
+    header "安装 Ghost"
+    echo "  现代化博客平台，自带会员/Newsletter"
+    _ensure_docker || return 1
+    local dir="$WEB_ROOT/ghost"
+    mkdir -p "$dir" && cd "$dir" || return 1
+    local port url
+    port="$(ask "Web端口" "2368")"
+    url="$(ask "站点URL (http://域名:端口)" "http://localhost:${port}")"
+    step "启动 Ghost"
+    docker run -d --name ghost -p "${port}:2368"         -e url="$url" -e TZ=Asia/Shanghai         -v "$dir:/var/lib/ghost/content"         --restart=always ghost:latest
+    sleep 5
+    success "Ghost 部署完成"
+    echo "  访问: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${port}"
+    echo "  管理后台: /ghost"
+}
+
+# ============================================================
+#  Discourse
+# ============================================================
+webserver_discourse() {
+    header "安装 Discourse"
+    echo "  开源论坛社区（需 Docker，内存建议2G+）"
+    _ensure_docker || return 1
+    local dir="/var/discourse"
+    if [ -d "$dir" ]; then
+        warn "Discourse 已安装: $dir"
+        cd "$dir" && ./launcher restart app
+        return 0
+    fi
+    step "克隆 Discourse Docker"
+    git clone https://github.com/discourse/discourse_docker.git "$dir"
+    cd "$dir" || return 1
+    info "需要手动配置: cd $dir && ./discourse-setup"
+    info "按提示输入域名、邮箱、SMTP 等信息后自动安装"
+    if confirm "现在运行配置向导?" "y"; then
+        ./discourse-setup
+    fi
+}
+
+# ============================================================
+#  Typecho
+# ============================================================
+webserver_typecho() {
+    header "安装 Typecho"
+    echo "  轻量博客程序"
+    _ensure_docker || return 1
+    local dir="$WEB_ROOT/typecho"
+    mkdir -p "$dir" && cd "$dir" || return 1
+    local port
+    port="$(ask "Web端口" "8080")"
+    step "启动 Typecho"
+    docker run -d --name typecho -p "${port}:80"         -e TZ=Asia/Shanghai         -v "$dir:/var/www/html"         --restart=always 80x86/typecho:latest
+    sleep 3
+    success "Typecho 部署完成"
+    echo "  访问: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${port}"
+}
+
+# ============================================================
+#  Hugo
+# ============================================================
+webserver_hugo() {
+    header "安装 Hugo"
+    echo "  静态站点生成器"
+    if has_cmd hugo; then
+        success "Hugo 已安装: $(hugo version)"
+        return 0
+    fi
+    local arch_map
+    case "$ARCH" in
+        x86_64) arch_map="amd64" ;;
+        aarch64) arch_map="arm64" ;;
+        *) error "不支持的架构"; return 1 ;;
+    esac
+    step "下载 Hugo"
+    local ver
+    ver="$(curl -s https://api.github.com/repos/gohugoio/hugo/releases/latest | grep tag_name | cut -d'"' -f4 | sed 's/v//')"
+    [ -z "$ver" ] && ver="0.128.0"
+    curl -fsSL "https://github.com/gohugoio/hugo/releases/download/v${ver}/hugo_extended_${ver}_linux-${arch_map}.deb" -o /tmp/hugo.deb
+    dpkg -i /tmp/hugo.deb 2>/dev/null || {
+        curl -fsSL "https://github.com/gohugoio/hugo/releases/download/v${ver}/hugo_extended_${ver}_linux-${arch_map}.tar.gz" -o /tmp/hugo.tar.gz
+        tar -xzf /tmp/hugo.tar.gz -C /usr/local/bin hugo
+    }
+    rm -f /tmp/hugo.*
+    success "Hugo 安装完成: $(hugo version)"
+    echo "  新建站点: hugo new site mysite"
+    echo "  本地预览: hugo server -D"
+}
+
 # ============================================================
 #  菜单
 # ============================================================
@@ -192,6 +334,11 @@ webserver_menu() {
         echo "  3) 安装 PHP (多版本)"
         echo "  4) LNMP 一键安装"
         echo "  5) 生成 Nginx 虚拟主机"
+        echo "  6) WordPress"
+        echo "  7) Ghost"
+        echo "  8) Discourse 论坛"
+        echo "  9) Typecho"
+        echo " 10) Hugo 静态站点"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -202,6 +349,11 @@ webserver_menu() {
             3) webserver_php; pause ;;
             4) webserver_lnmp; pause ;;
             5) webserver_vhost; pause ;;
+            6) webserver_wordpress; pause ;;
+            7) webserver_ghost; pause ;;
+            8) webserver_discourse; pause ;;
+            9) webserver_typecho; pause ;;
+            10) webserver_hugo; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac

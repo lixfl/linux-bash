@@ -435,6 +435,170 @@ selfhost_minecraft() {
     echo "  日志: docker logs -f minecraft"
 }
 
+
+# ============================================================
+#  16. Immich
+# ============================================================
+selfhost_immich() {
+    header "安装 Immich"
+    echo "  自建 Google Photos 替代，手机自动备份+AI识别"
+    _ensure_docker || return 1
+    local dir="$SELFHOST_BASE/immich"
+    mkdir -p "$dir" && cd "$dir" || return 1
+    local port
+    port="$(ask "Web端口" "2283")"
+    step "下载 docker-compose"
+    curl -fsSL https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml -o docker-compose.yml
+    curl -fsSL https://github.com/immich-app/immich/releases/latest/download/example.env -o .env
+    sed -i "s/^UPLOAD_LOCATION=.*/UPLOAD_LOCATION=.\/upload/" .env
+    sed -i "s/2283:2283/${port}:2283/" docker-compose.yml
+    step "启动 Immich (约6个容器)"
+    docker compose up -d
+    sleep 10
+    success "Immich 部署完成"
+    echo "  访问: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${port}"
+    echo "  首次访问注册管理员账号"
+}
+
+# ============================================================
+#  17. PhotoPrism
+# ============================================================
+selfhost_photoprism() {
+    header "安装 PhotoPrism"
+    echo "  自建照片管理，AI标签/人脸识别/地理定位"
+    _ensure_docker || return 1
+    local dir="$SELFHOST_BASE/photoprism"
+    mkdir -p "$dir/photos" "$dir/storage" && cd "$dir" || return 1
+    local port
+    port="$(ask "Web端口" "2342")"
+    step "启动 PhotoPrism"
+    docker run -d --name photoprism -p "${port}:2342"         -e PHOTOPRISM_ADMIN_PASSWORD=admin123         -e PHOTOPRISM_SITE_URL="http://localhost:${port}/"         -e TZ=Asia/Shanghai         -v "$dir/photos:/photoprism/originals"         -v "$dir/storage:/photoprism/storage"         --restart=always photoprism/photoprism:latest
+    sleep 10
+    success "PhotoPrism 部署完成"
+    echo "  访问: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${port}"
+    echo "  账号: admin / admin123"
+}
+
+# ============================================================
+#  18. Calibre-Web
+# ============================================================
+selfhost_calibre() {
+    header "安装 Calibre-Web"
+    echo "  电子书库管理，支持 Kindle 推送"
+    _ensure_docker || return 1
+    mkdir -p "$SELFHOST_BASE/calibre/books" "$SELFHOST_BASE/calibre/config"
+    local port
+    port="$(ask "Web端口" "8083")"
+    docker run -d --name calibre-web -p "${port}:8083"         -e TZ=Asia/Shanghai         -v "$SELFHOST_BASE/calibre/books:/books"         -v "$SELFHOST_BASE/calibre/config:/config"         --restart=always lscr.io/linuxserver/calibre-web:latest
+    sleep 5
+    success "Calibre-Web 部署完成"
+    echo "  访问: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${port}"
+    echo "  默认账号: admin / admin123"
+}
+
+# ============================================================
+#  19. yt-dlp
+# ============================================================
+selfhost_ytdlp() {
+    header "安装 yt-dlp"
+    echo "  视频下载工具（YouTube/B站/抖音等1000+网站）"
+    if has_cmd yt-dlp; then
+        success "yt-dlp 已安装: $(yt-dlp --version)"
+        return 0
+    fi
+    step "安装 yt-dlp"
+    curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
+    chmod +x /usr/local/bin/yt-dlp
+    pkg_install ffmpeg 2>/dev/null
+    success "yt-dlp 安装完成: $(yt-dlp --version)"
+    echo "  下载视频: yt-dlp '视频URL'"
+    echo "  列格式: yt-dlp -F 'URL'"
+    echo "  下载音频: yt-dlp -x --audio-format mp3 'URL'"
+}
+
+# ============================================================
+#  20. Palworld
+# ============================================================
+selfhost_palworld() {
+    header "安装 Palworld 服务器"
+    echo "  幻兽帕鲁专用服务器"
+    _ensure_docker || return 1
+    mkdir -p "$SELFHOST_BASE/palworld"
+    local port query_port
+    port="$(ask "游戏端口" "8211")"
+    query_port="$(ask "查询端口" "27015")"
+    step "启动 Palworld 服务器"
+    docker run -d --name palworld         -p "${port}:8211/udp" -p "${query_port}:27015/udp"         -e TZ=Asia/Shanghai         -e SERVER_PASSWORD=palworld123         -e ADMIN_PASSWORD=admin123         -v "$SELFHOST_BASE/palworld:/palworld"         --restart=always thijsvanloef/palworld-server-docker:latest
+    sleep 10
+    success "Palworld 服务器启动中"
+    echo "  游戏端口: ${port} (UDP)"
+    echo "  服务器密码: palworld123"
+    echo "  日志: docker logs -f palworld"
+}
+
+# ============================================================
+#  21. SteamCMD
+# ============================================================
+selfhost_steamcmd() {
+    header "安装 SteamCMD"
+    echo "  Steam 游戏服务器通用管理工具"
+    if has_cmd steamcmd; then
+        success "SteamCMD 已安装"
+        return 0
+    fi
+    step "安装 SteamCMD"
+    if [ "$PKG_MANAGER" = "apt" ]; then
+        echo "deb http://archive.ubuntu.com/ubuntu/ jammy multiverse" >> /etc/apt/sources.list
+        dpkg --add-architecture i386
+        apt-get update -qq
+        echo "steamcmd steamcmd/license note" | debconf-set-selections
+        apt-get install -y steamcmd
+        ln -sf /usr/games/steamcmd /usr/local/bin/steamcmd
+    else
+        mkdir -p /opt/steamcmd && cd /opt/steamcmd
+        curl -fsSL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz | tar -xz
+        ln -sf /opt/steamcmd/steamcmd.sh /usr/local/bin/steamcmd
+    fi
+    success "SteamCMD 安装完成"
+    echo "  安装游戏服: steamcmd +login anonymous +app_update <APPID> validate +quit"
+    echo "  常用APPID: CS2=730, Valheim=896660, 方舟=2430930"
+}
+
+# ============================================================
+#  22. Terraria
+# ============================================================
+selfhost_terraria() {
+    header "安装 Terraria 服务器"
+    echo "  泰拉瑞亚专用服务器"
+    _ensure_docker || return 1
+    mkdir -p "$SELFHOST_BASE/terraria"
+    local port
+    port="$(ask "游戏端口" "7777")"
+    docker run -d --name terraria -p "${port}:7777"         -e TZ=Asia/Shanghai -e WORLD_FILENAME=world.wld         -v "$SELFHOST_BASE/terraria:/root/.local/share/Terraria"         --restart=always ryshe/terraria:latest
+    sleep 5
+    success "Terraria 服务器启动中"
+    echo "  端口: ${port}"
+    echo "  日志: docker logs -f terraria"
+}
+
+# ============================================================
+#  23. Home Assistant
+# ============================================================
+selfhost_homeassistant() {
+    header "安装 Home Assistant"
+    echo "  智能家居中枢，接入各种智能设备"
+    _ensure_docker || return 1
+    mkdir -p "$SELFHOST_BASE/homeassistant"
+    local port
+    port="$(ask "Web端口" "8123")"
+    step "启动 Home Assistant"
+    docker run -d --name homeassistant         --privileged --net=host         -e TZ=Asia/Shanghai         -v "$SELFHOST_BASE/homeassistant:/config"         --restart=always ghcr.io/home-assistant/home-assistant:stable
+    sleep 10
+    success "Home Assistant 部署完成"
+    echo "  访问: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${port}"
+    echo "  使用 host 网络模式以发现本地设备"
+}
+
 # ============================================================
 #  状态查看
 # ============================================================
@@ -443,7 +607,7 @@ selfhost_status() {
     echo ""
     if has_cmd docker; then
         section "Docker 容器"
-        for c in alist filebrowser vaultwarden jellyfin memos gitea qbittorrent aria2 navidrome nextcloud freshrss hoppscotch outline linkding minecraft; do
+        for c in alist filebrowser vaultwarden jellyfin memos gitea qbittorrent aria2 navidrome nextcloud freshrss hoppscotch outline linkding minecraft immich photoprism calibre-web palworld terraria homeassistant; do
             docker inspect "$c" &>/dev/null && {
                 local status
                 status="$(docker inspect -f '{{.State.Status}}' "$c" 2>/dev/null)"
@@ -479,7 +643,15 @@ selfhost_menu() {
         echo " 13) Outline      (知识库/文档)"
         echo " 14) Linkding     (书签管理)"
         echo " 15) Minecraft    (游戏服务器)"
-        echo " 16) 查看已安装状态"
+        echo " 16) Immich       (照片备份AI识别)"
+        echo " 17) PhotoPrism   (照片管理)"
+        echo " 18) Calibre-Web  (电子书库)"
+        echo " 19) yt-dlp       (视频下载)"
+        echo " 20) Palworld     (幻兽帕鲁)"
+        echo " 21) SteamCMD     (Steam游戏服)"
+        echo " 22) Terraria     (泰拉瑞亚)"
+        echo " 23) HomeAssistant(智能家居)"
+        echo " 24) 查看已安装状态"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -500,7 +672,15 @@ selfhost_menu() {
             13) selfhost_outline; pause ;;
             14) selfhost_linkding; pause ;;
             15) selfhost_minecraft; pause ;;
-            16) selfhost_status; pause ;;
+            16) selfhost_immich; pause ;;
+            17) selfhost_photoprism; pause ;;
+            18) selfhost_calibre; pause ;;
+            19) selfhost_ytdlp; pause ;;
+            20) selfhost_palworld; pause ;;
+            21) selfhost_steamcmd; pause ;;
+            22) selfhost_terraria; pause ;;
+            23) selfhost_homeassistant; pause ;;
+            24) selfhost_status; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac

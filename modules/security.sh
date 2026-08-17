@@ -438,6 +438,26 @@ EOF
     echo "  通过 PAM 触发，登录时自动推送"
 }
 
+
+# ============================================================
+#  ClamAV 杀毒
+# ============================================================
+security_clamav() {
+    require_root || return 1
+    header "ClamAV 杀毒扫描"
+    if ! has_cmd clamscan; then
+        step "安装 ClamAV"
+        pkg_install clamav clamav-daemon 2>/dev/null || pkg_install clamav
+    fi
+    step "更新病毒库"
+    freshclam 2>/dev/null || echo "  病毒库更新中..."
+    local target
+    target="$(ask "扫描路径" "/home")"
+    step "扫描 $target (可能较慢)"
+    clamscan -r --bell -i "$target" 2>/dev/null | tee /tmp/clamav-scan.txt
+    success "扫描完成，报告: /tmp/clamav-scan.txt"
+}
+
 security_menu() {
     while true; do
         header "安全加固"
@@ -451,6 +471,7 @@ security_menu() {
         echo "  8) Lynis 安全审计"
         echo "  9) rkhunter Rootkit检测"
         echo " 10) SSH登录告警"
+        echo " 11) ClamAV 杀毒扫描"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -466,6 +487,7 @@ security_menu() {
             8) security_lynis; pause ;;
             9) security_rkhunter; pause ;;
             10) security_ssh_alert; pause ;;
+            11) security_clamav; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac

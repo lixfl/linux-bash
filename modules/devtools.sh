@@ -206,7 +206,9 @@ devtools_menu() {
         echo " 12) Python pyenv"
         echo " 13) Jenkins (CI/CD)"
         echo " 14) ttyd (Web终端)"
-        echo " 15) 检查已安装工具"
+        echo " 15) Locust (压测)"
+        echo " 16) k6 (压测)"
+        echo " 17) 检查已安装工具"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -226,7 +228,9 @@ devtools_menu() {
             12) devtools_pyenv; pause ;;
             13) devtools_jenkins; pause ;;
             14) devtools_ttyd; pause ;;
-            15) devtools_check; pause ;;
+            15) devtools_locust; pause ;;
+            16) devtools_k6; pause ;;
+            17) devtools_check; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac

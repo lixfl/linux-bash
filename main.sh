@@ -36,6 +36,7 @@ MODULES=(
     "devtools:开发工具"
     "autoupdate:自动更新"
     "security:安全加固"
+    "panel:系统面板"
     "optimize:性能优化"
     "cleanup:系统清理"
     "network:网络诊断"
