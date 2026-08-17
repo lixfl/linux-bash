@@ -208,7 +208,9 @@ devtools_menu() {
         echo " 14) ttyd (Web终端)"
         echo " 15) Locust (压测)"
         echo " 16) k6 (压测)"
-        echo " 17) 检查已安装工具"
+        echo " 17) K9s (K8s终端UI)"
+        echo " 18) Helm (K8s包管理)"
+        echo " 19) 检查已安装工具"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -230,7 +232,9 @@ devtools_menu() {
             14) devtools_ttyd; pause ;;
             15) devtools_locust; pause ;;
             16) devtools_k6; pause ;;
-            17) devtools_check; pause ;;
+            17) devtools_k9s; pause ;;
+            18) devtools_helm; pause ;;
+            19) devtools_check; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac

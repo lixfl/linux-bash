@@ -243,6 +243,100 @@ middleware_pihole() {
     echo "  将设备 DNS 设为本机IP即可全网络去广告"
 }
 
+
+# ============================================================
+#  ClickHouse
+# ============================================================
+middleware_clickhouse() {
+    header "安装 ClickHouse"
+    echo "  列式数据库，大数据分析场景（比ES更快）"
+    _ensure_docker || return 1
+    mkdir -p "$MW_BASE/clickhouse"
+    local http_port tcp_port
+    http_port="$(ask "HTTP端口" "8123")"
+    tcp_port="$(ask "TCP端口" "9000")"
+    step "启动 ClickHouse"
+    docker run -d --name clickhouse         -p "${http_port}:8123" -p "${tcp_port}:9000"         -e TZ=Asia/Shanghai         -v "$MW_BASE/clickhouse:/var/lib/clickhouse"         --ulimit nofile=262144:262144         --restart=always clickhouse/clickhouse-server
+    sleep 5
+    success "ClickHouse 部署完成"
+    echo "  HTTP: http://localhost:${http_port}"
+    echo "  TCP: localhost:${tcp_port}"
+    echo "  测试: curl http://localhost:${http_port}/?query=SELECT+1"
+}
+
+# ============================================================
+#  NATS
+# ============================================================
+middleware_nats() {
+    header "安装 NATS"
+    echo "  轻量高性能消息系统（云原生）"
+    _ensure_docker || return 1
+    local port monitor_port
+    port="$(ask "客户端端口" "4222")"
+    monitor_port="$(ask "监控端口" "8222")"
+    docker run -d --name nats         -p "${port}:4222" -p "${monitor_port}:8222"         --restart=always nats:latest -js -m 8222
+    sleep 2
+    success "NATS 部署完成"
+    echo "  客户端: nats://localhost:${port}"
+    echo "  监控: http://localhost:${monitor_port}"
+}
+
+# ============================================================
+#  APISIX
+# ============================================================
+middleware_apisix() {
+    header "安装 APISIX"
+    echo "  云原生 API 网关（Apache 顶级项目）"
+    _ensure_docker || return 1
+    local dir="$MW_BASE/apisix"
+    mkdir -p "$dir" && cd "$dir" || return 1
+    local http_port admin_port
+    http_port="$(ask "HTTP端口" "9080")"
+    admin_port="$(ask "Admin端口" "9180")"
+    step "生成配置并启动"
+    cat > config.yaml <<EOF
+apisix:
+  node_listen: 9080
+  admin_key:
+    - name: admin
+      key: edd1c9f034335f136f87ad84b625c8f1
+      role: admin
+deployment:
+  role: traditional
+  role_traditional:
+    config_provider: etcd
+  etcd:
+    host:
+      - "http://etcd:2379"
+EOF
+    cat > docker-compose.yml <<EOF
+version: '3.8'
+services:
+  apisix:
+    image: apache/apisix:latest
+    container_name: apisix
+    ports:
+      - "${http_port}:9080"
+      - "${admin_port}:9180"
+    volumes:
+      - ./config.yaml:/usr/local/apisix/conf/config.yaml:ro
+    depends_on:
+      - etcd
+    restart: always
+  etcd:
+    image: bitnami/etcd:latest
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=yes
+    restart: always
+EOF
+    docker compose up -d
+    sleep 8
+    success "APISIX 部署完成"
+    echo "  HTTP: http://localhost:${http_port}"
+    echo "  Admin: http://localhost:${admin_port}"
+    echo "  Admin Key: edd1c9f034335f136f87ad84b625c8f1"
+}
+
 # ============================================================
 #  状态查看
 # ============================================================
@@ -250,7 +344,7 @@ middleware_status() {
     header "中间件状态"
     echo ""
     if has_cmd docker; then
-        for c in rabbitmq meilisearch memcached influxdb kafka elasticsearch kibana mosquitto pihole; do
+        for c in rabbitmq meilisearch memcached influxdb kafka elasticsearch kibana mosquitto pihole clickhouse nats apisix; do
             docker inspect "$c" &>/dev/null && {
                 local status
                 status="$(docker inspect -f '{{.State.Status}}' "$c" 2>/dev/null)"
@@ -274,7 +368,10 @@ middleware_menu() {
         echo "  6) Elasticsearch+Kibana (搜索+可视化)"
         echo "  7) Mosquitto (MQTT/IoT)"
         echo "  8) Pi-hole (DNS广告过滤)"
-        echo "  9) 查看运行状态"
+        echo "  9) ClickHouse (列式数据库)"
+        echo " 10) NATS (云原生消息)"
+        echo " 11) APISIX (API网关)"
+        echo " 12) 查看运行状态"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -288,7 +385,10 @@ middleware_menu() {
             6) middleware_elasticsearch; pause ;;
             7) middleware_mosquitto; pause ;;
             8) middleware_pihole; pause ;;
-            9) middleware_status; pause ;;
+            9) middleware_clickhouse; pause ;;
+            10) middleware_nats; pause ;;
+            11) middleware_apisix; pause ;;
+            12) middleware_status; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac

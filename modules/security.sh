@@ -458,6 +458,35 @@ security_clamav() {
     success "扫描完成，报告: /tmp/clamav-scan.txt"
 }
 
+
+# ============================================================
+#  Wazuh 安全监控
+# ============================================================
+security_wazuh() {
+    require_root || return 1
+    header "安装 Wazuh"
+    echo "  开源安全监控平台（XDR/IDS/漏洞检测）"
+    _ensure_docker || return 1
+    local dir="$HOME/wazuh"
+    if [ -d "$dir" ]; then
+        warn "Wazuh 已存在: $dir"
+        cd "$dir" && docker compose up -d
+        return 0
+    fi
+    mkdir -p "$dir" && cd "$dir" || return 1
+    step "克隆 Wazuh Docker 配置"
+    git clone --depth 1 https://github.com/wazuh/wazuh-docker.git . 2>/dev/null || true
+    cd single-node 2>/dev/null || cd .
+    step "生成证书并启动（内存建议4G+）"
+    docker compose -f generate-indexer-certs.yml run --rm generator 2>/dev/null
+    docker compose up -d 2>/dev/null || warn "启动失败，Wazuh 资源需求较高"
+    sleep 15
+    success "Wazuh 部署完成"
+    echo "  访问: https://$(hostname -I 2>/dev/null|awk '{print $1}')"
+    echo "  账号: admin / SecretPassword"
+    warn "Wazuh 需至少4G内存，首次启动较慢"
+}
+
 security_menu() {
     while true; do
         header "安全加固"
@@ -472,6 +501,7 @@ security_menu() {
         echo "  9) rkhunter Rootkit检测"
         echo " 10) SSH登录告警"
         echo " 11) ClamAV 杀毒扫描"
+        echo " 12) Wazuh 安全监控(XDR)"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -488,6 +518,7 @@ security_menu() {
             9) security_rkhunter; pause ;;
             10) security_ssh_alert; pause ;;
             11) security_clamav; pause ;;
+            12) security_wazuh; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac
