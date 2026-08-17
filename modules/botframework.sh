@@ -725,19 +725,20 @@ botframework_menu() {
         echo "  5) LangBot      (大模型多平台, Python, Docker)"
         echo "  6) qq-ai-bot    (轻量QQ AI, Docker/Python)"
         echo "  7) Yunzai       (QQ机器人, Node.js, 全自动部署)"
-        echo "  8) Wechaty      (微信, Node.js, Docker/npm)"
-        echo "  9) nanobot      (超轻量AI助理, Python, <100MB)"
+        echo "  8) 早柚核心     (gsuid_core, 游戏机器人, Python/uv)"
+        echo "  9) Wechaty      (微信, Node.js, Docker/npm)"
+        echo " 10) nanobot      (超轻量AI助理, Python, <100MB)"
         echo ""
         echo "  ── AI 平台 / 工作流 ──"
-        echo " 10) LobeChat     (AI聊天工作台, Docker)"
-        echo " 11) OpenClaw     (AI Agent平台, Docker)"
-        echo " 12) Dify         (LLM应用开发, Docker Compose)"
-        echo " 13) n8n          (工作流自动化, Docker)"
+        echo " 11) LobeChat     (AI聊天工作台, Docker)"
+        echo " 12) OpenClaw     (AI Agent平台, Docker)"
+        echo " 13) Dify         (LLM应用开发, Docker Compose)"
+        echo " 14) n8n          (工作流自动化, Docker)"
         echo ""
         echo "  ── 协议端 ──"
-        echo " 14) Lagrange.Core (NTQQ OneBot协议端, Docker/二进制)"
+        echo " 15) Lagrange.Core (NTQQ OneBot协议端, Docker/二进制)"
         echo ""
-        echo " 15) 查看已安装状态"
+        echo " 16) 查看已安装状态"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -750,14 +751,15 @@ botframework_menu() {
             5)  botframework_langbot; pause ;;
             6)  botframework_qqai; pause ;;
             7)  botframework_yunzai; pause ;;
-            8)  botframework_wechaty; pause ;;
-            9)  botframework_nanobot; pause ;;
-            10) botframework_lobechat; pause ;;
-            11) botframework_openclaw; pause ;;
-            12) botframework_dify; pause ;;
-            13) botframework_n8n; pause ;;
-            14) botframework_lagrange; pause ;;
-            15) botframework_status; pause ;;
+            8)  botframework_sayu; pause ;;
+            9)  botframework_wechaty; pause ;;
+            10) botframework_nanobot; pause ;;
+            11) botframework_lobechat; pause ;;
+            12) botframework_openclaw; pause ;;
+            13) botframework_dify; pause ;;
+            14) botframework_n8n; pause ;;
+            15) botframework_lagrange; pause ;;
+            16) botframework_status; pause ;;
             0)  break ;;
             *)  warn "无效选项" ;;
         esac
