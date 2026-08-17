@@ -69,9 +69,8 @@ server-toolkit/
 - systemd 服务状态、失败服务
 
 ### 2. 软件源换源 (mirror)
-- 一键换源（集成 linuxmirrors.cn，交互式选择镜像）
+- 一键换源（直接调用 linuxmirrors.cn 官方脚本，交互式选择镜像）
 - 查看当前源配置
-- 手动换源（清华源，支持 Ubuntu/Debian/CentOS/Rocky/Alpine/Arch）
 
 ### 3. 一键完善系统环境 (essential)
 - **一键安装全部基础工具**（10 大类 100+ 包）
@@ -162,7 +161,7 @@ server-toolkit/
 - 下载速度测试
 
 ### 14. Docker 管理 (docker)
-- 一键安装 Docker（国内镜像源 linuxmirrors.cn / 官方脚本 / 手动源）
+- 一键安装 Docker（直接调用 linuxmirrors.cn 官方脚本）
 - 容器管理（启动/停止/重启/删除/进入/日志）
 - 镜像管理（列表/拉取/删除/清理悬空）
 - Docker Compose 管理

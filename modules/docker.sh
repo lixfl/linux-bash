@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # ============================================================
 #  docker.sh - Docker 管理
-#  功能：安装、容器/镜像/卷管理、Compose、资源监控
+#  安装直接调用 linuxmirrors.cn 官方脚本
 # ============================================================
-
 # shellcheck source=../lib/common.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
+
+DOCKER_SCRIPT_URL="https://linuxmirrors.cn/docker.sh"
 
 # ---- 检查 Docker ----
 _check_docker() {
@@ -23,61 +24,26 @@ _check_docker() {
 # ---- 安装 Docker ----
 docker_install() {
     require_root || return 1
-    header "安装 Docker"
+    header "安装 Docker (linuxmirrors.cn)"
     if has_cmd docker; then
         warn "Docker 已安装: $(docker --version)"
-        if confirm "是否重新安装?" "n"; then
-            pkg_remove docker docker-engine docker.io containerd runc 2>/dev/null
-        else
+        if ! confirm "是否重新安装?" "n"; then
             return 0
         fi
+        pkg_remove docker docker-engine docker.io containerd runc 2>/dev/null
     fi
-
-    echo "  1) 国内镜像源一键安装 (linuxmirrors.cn) - 推荐"
-    echo "  2) 官方脚本安装 (get.docker.com)"
-    echo "  3) 手动添加源安装"
-    local method
-    method="$(ask "选择安装方式" "1")"
-
+    echo "  当前系统: $OS_PRETTY"
+    echo ""
     if ! has_cmd curl; then
         step "安装 curl"
         pkg_install curl
     fi
-
-    case "$method" in
-        1)
-            step "使用 linuxmirrors.cn 国内镜像安装"
-            bash <(curl -sSL https://linuxmirrors.cn/docker.sh)
-            ;;
-        2)
-            step "使用官方脚本安装"
-            curl -fsSL https://get.docker.com | bash
-            ;;
-        3)
-            case "$PKG_MANAGER" in
-                apt)
-                    pkg_install apt-transport-https ca-certificates curl gnupg lsb-release
-                    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-                    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
-                    apt-get update -qq
-                    pkg_install docker-ce docker-ce-cli containerd.io docker-compose-plugin
-                    ;;
-                dnf|yum)
-                    pkg_install yum-utils
-                    yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo 2>/dev/null
-                    pkg_install docker-ce docker-ce-cli containerd.io docker-compose-plugin
-                    ;;
-                *)
-                    error "请手动安装 Docker: https://docs.docker.com/engine/install/"
-                    return 1
-                    ;;
-            esac
-            ;;
-        *)
-            warn "无效选项，取消安装"
-            return 1
-            ;;
-    esac
+    info "即将运行 linuxmirrors.cn 官方 Docker 安装脚本"
+    echo "  脚本会自动识别系统并配置国内镜像源，按提示操作即可"
+    echo ""
+    if ! confirm "继续?" "y"; then return 0; fi
+    step "下载并执行 Docker 安装脚本"
+    bash <(curl -sSL "$DOCKER_SCRIPT_URL")
 
     svc_enable docker 2>/dev/null
     svc_start docker 2>/dev/null
@@ -198,7 +164,6 @@ docker_compose() {
     dir="$(ask "compose 文件所在目录" "$(pwd)")"
     [ -d "$dir" ] || { error "目录不存在"; return 1; }
     cd "$dir" || return 1
-
     local compose_cmd
     if docker compose version &>/dev/null; then
         compose_cmd="docker compose"
@@ -208,7 +173,6 @@ docker_compose() {
         error "未找到 docker compose"
         return 1
     fi
-
     echo "  使用: $compose_cmd"
     echo ""
     echo "  1) 启动 (up -d)"
@@ -275,7 +239,7 @@ docker_quick_run() {
 docker_menu() {
     while true; do
         header "Docker 管理"
-        echo "  1) 安装 Docker"
+        echo "  1) 安装 Docker (linuxmirrors.cn 官方脚本)"
         echo "  2) 容器管理"
         echo "  3) 镜像管理"
         echo "  4) Compose 管理"
