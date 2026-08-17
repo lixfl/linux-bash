@@ -73,6 +73,32 @@ EOF
 }
 
 # ============================================================
+#  1Panel
+# ============================================================
+panel_1panel() {
+    require_root || return 1
+    header "安装 1Panel"
+    echo "  现代化 Linux 服务器运维面板（飞致云出品）"
+    if has_cmd 1pctl; then
+        success "1Panel 已安装"
+        1pctl user-info 2>/dev/null
+        return 0
+    fi
+    step "安装 1Panel"
+    curl -sSL https://resource.fit2cloud.com/1panel/package/quick_start.sh -o /tmp/1panel-quick-start.sh
+    bash /tmp/1panel-quick-start.sh
+    rm -f /tmp/1panel-quick-start.sh
+    if has_cmd 1pctl; then
+        success "1Panel 安装完成"
+        echo "  管理命令: 1pctl (1pctl help 查看帮助)"
+        echo "  面板信息: 1pctl user-info"
+        1pctl user-info 2>/dev/null
+    else
+        warn "安装可能未完成，请检查上方输出"
+    fi
+}
+
+# ============================================================
 #  SMTP 邮件发送配置
 # ============================================================
 panel_smtp() {
@@ -124,7 +150,8 @@ panel_menu() {
         header "系统面板与邮件"
         echo "  1) 宝塔面板 (bt.cn/aapanel)"
         echo "  2) Webmin (通用系统管理)"
-        echo "  3) SMTP 邮件发送配置"
+        echo "  3) 1Panel (现代化运维面板)"
+        echo "  4) SMTP 邮件发送配置"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -132,7 +159,8 @@ panel_menu() {
         case "$choice" in
             1) panel_bt; pause ;;
             2) panel_webmin; pause ;;
-            3) panel_smtp; pause ;;
+            3) panel_1panel; pause ;;
+            4) panel_smtp; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac
