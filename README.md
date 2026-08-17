@@ -14,6 +14,7 @@
 
 ```bash
 # 克隆或上传到服务器
+git clone https://github.com/lixfl/linux-bash.git
 cd server-toolkit
 
 # 添加执行权限
