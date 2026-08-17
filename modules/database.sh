@@ -188,6 +188,132 @@ database_panels() {
     esac
 }
 
+
+# ============================================================
+#  TiDB
+# ============================================================
+database_tidb() {
+    header "安装 TiDB"
+    echo "  分布式 HTAP 数据库（MySQL 兼容）"
+    _ensure_docker || return 1
+    local port
+    port="$(ask "MySQL端口" "4000")"
+    docker run -d --name tidb -p "${port}:4000" -p 10080:10080         -e TZ=Asia/Shanghai         --restart=always pingcap/tidb:latest
+    sleep 8
+    success "TiDB 部署完成"
+    echo "  MySQL兼容: mysql -h 127.0.0.1 -P ${port} -u root"
+    echo "  状态: http://localhost:10080/status"
+}
+
+# ============================================================
+#  CockroachDB
+# ============================================================
+database_cockroach() {
+    header "安装 CockroachDB"
+    echo "  分布式 SQL（PostgreSQL 兼容）"
+    _ensure_docker || return 1
+    local dir="$HOME/cockroach"
+    mkdir -p "$dir"
+    local port sql_port
+    port="$(ask "Web端口" "8080")"
+    sql_port="$(ask "SQL端口" "26257")"
+    docker run -d --name cockroach         -p "${sql_port}:26257" -p "${port}:8080"         -v "$dir:/cockroach/cockroach-data"         --restart=always cockroachdb/cockroach:latest start-single-node --insecure
+    sleep 8
+    success "CockroachDB 部署完成"
+    echo "  SQL: postgresql://root@localhost:${sql_port}/defaultdb?sslmode=disable"
+    echo "  控制台: http://localhost:${port}"
+}
+
+# ============================================================
+#  Neo4j
+# ============================================================
+database_neo4j() {
+    header "安装 Neo4j"
+    echo "  图数据库（知识图谱/关系分析）"
+    _ensure_docker || return 1
+    local dir="$HOME/neo4j"
+    mkdir -p "$dir/data" "$dir/logs" "$dir/plugins"
+    local port bolt_port
+    port="$(ask "Web端口" "7474")"
+    bolt_port="$(ask "Bolt端口" "7687")"
+    docker run -d --name neo4j         -p "${port}:7474" -p "${bolt_port}:7687"         -e NEO4J_AUTH=neo4j/neo4j123         -e NEO4J_PLUGINS='["apoc"]'         -v "$dir/data:/data" -v "$dir/logs:/logs" -v "$dir/plugins:/plugins"         --restart=always neo4j:latest
+    sleep 10
+    success "Neo4j 部署完成"
+    echo "  控制台: http://$(hostname -I 2>/dev/null|awk '{print $1}'):${port}"
+    echo "  账号: neo4j / neo4j123"
+}
+
+# ============================================================
+#  Qdrant
+# ============================================================
+database_qdrant() {
+    header "安装 Qdrant"
+    echo "  向量数据库（AI/RAG 必备）"
+    _ensure_docker || return 1
+    local dir="$HOME/qdrant"
+    mkdir -p "$dir/storage"
+    local port
+    port="$(ask "HTTP端口" "6333")"
+    docker run -d --name qdrant -p "${port}:6333" -p 6334:6334         -e TZ=Asia/Shanghai         -v "$dir/storage:/qdrant/storage"         --restart=always qdrant/qdrant
+    sleep 3
+    success "Qdrant 部署完成: http://localhost:${port}"
+    echo "  Dashboard: http://localhost:${port}/dashboard"
+}
+
+# ============================================================
+#  Milvus
+# ============================================================
+database_milvus() {
+    header "安装 Milvus"
+    echo "  向量数据库（大规模）"
+    _ensure_docker || return 1
+    local dir="$HOME/milvus"
+    mkdir -p "$dir" && cd "$dir" || return 1
+    local port
+    port="$(ask "端口" "19530")"
+    step "下载 compose"
+    curl -fsSL https://github.com/milvus-io/milvus/releases/latest/download/milvus-standalone-docker-compose.yml -o docker-compose.yml 2>/dev/null
+    docker compose up -d 2>/dev/null || warn "启动失败"
+    sleep 10
+    success "Milvus 部署完成"
+    echo "  端口: ${port}, 管理: http://localhost:9091 (attu)"
+}
+
+# ============================================================
+#  VictoriaMetrics
+# ============================================================
+database_victoriametrics() {
+    header "安装 VictoriaMetrics"
+    echo "  时序数据库（比 Prometheus 更省资源）"
+    _ensure_docker || return 1
+    local dir="$HOME/victoriametrics"
+    mkdir -p "$dir"
+    local port
+    port="$(ask "端口" "8428")"
+    docker run -d --name victoriametrics -p "${port}:8428"         -e TZ=Asia/Shanghai         -v "$dir:/victoria-metrics-data"         --restart=always victoriametrics/victoria-metrics
+    sleep 3
+    success "VictoriaMetrics 部署完成: http://localhost:${port}"
+}
+
+# ============================================================
+#  Doris
+# ============================================================
+database_doris() {
+    header "安装 Apache Doris"
+    echo "  国产 OLAP 引擎（MPP架构）"
+    _ensure_docker || return 1
+    local dir="$HOME/doris"
+    mkdir -p "$dir" && cd "$dir" || return 1
+    step "下载 Docker 镜像并启动"
+    docker run -d --name doris-fe -p 8030:8030 -p 9030:9030         -e TZ=Asia/Shanghai         -v "$dir/fe:/opt/apache-doris/fe/doris-meta"         --restart=always apache/doris:2.0.3-fe-x86_64
+    sleep 10
+    docker run -d --name doris-be --link doris-fe         -e TZ=Asia/Shanghai         -v "$dir/be:/opt/apache-doris/be/storage"         --restart=always apache/doris:2.0.3-be-x86_64
+    sleep 10
+    success "Doris 部署完成"
+    echo "  FE Web: http://localhost:8030 (root/空密码)"
+    echo "  MySQL: mysql -h 127.0.0.1 -P 9030 -u root"
+}
+
 # ============================================================
 #  状态查看
 # ============================================================
@@ -217,7 +343,15 @@ database_menu() {
         echo "  3) Redis"
         echo "  4) MongoDB"
         echo "  5) 数据库管理面板 (Docker)"
-        echo "  6) 查看运行状态"
+        echo "  ── 更多数据库 ──"
+        echo "  6) TiDB (分布式HTAP)"
+        echo "  7) CockroachDB (分布式SQL)"
+        echo "  8) Neo4j (图数据库)"
+        echo "  9) Qdrant (向量数据库)"
+        echo " 10) Milvus (向量数据库)"
+        echo " 11) VictoriaMetrics (时序)"
+        echo " 12) Doris (OLAP)"
+        echo " 13) 查看运行状态"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -228,7 +362,14 @@ database_menu() {
             3) database_redis; pause ;;
             4) database_mongo; pause ;;
             5) database_panels; pause ;;
-            6) database_status; pause ;;
+            6) database_tidb; pause ;;
+            7) database_cockroach; pause ;;
+            8) database_neo4j; pause ;;
+            9) database_qdrant; pause ;;
+            10) database_milvus; pause ;;
+            11) database_victoriametrics; pause ;;
+            12) database_doris; pause ;;
+            13) database_status; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac

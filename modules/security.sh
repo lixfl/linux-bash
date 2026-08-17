@@ -487,6 +487,173 @@ security_wazuh() {
     warn "Wazuh 需至少4G内存，首次启动较慢"
 }
 
+
+# ============================================================
+#  OpenVAS 漏洞扫描
+# ============================================================
+security_openvas() {
+    require_root || return 1
+    header "安装 OpenVAS (Greenbone)"
+    echo "  企业级漏洞扫描器（资源需求高，建议4核8G+）"
+    _ensure_docker || return 1
+    local dir="$HOME/openvas"
+    mkdir -p "$dir" && cd "$dir" || return 1
+    step "克隆 Greenbone Docker 配置"
+    git clone --depth 1 https://github.com/greenbone/greenbone-docker.git . 2>/dev/null || true
+    docker compose -f docker-compose.yml up -d 2>/dev/null || warn "启动失败，OpenVAS 首次初始化较慢"
+    success "OpenVAS 部署中"
+    echo "  访问: https://$(hostname -I 2>/dev/null|awk '{print $1}'):9392"
+    echo "  账号: admin / 查看 docker logs greenbone-gsa"
+    warn "首次启动需下载漏洞库，可能需要30分钟+"
+}
+
+# ============================================================
+#  Trivy 容器扫描
+# ============================================================
+security_trivy() {
+    header "安装 Trivy"
+    echo "  容器/文件系统/代码漏洞扫描"
+    if has_cmd trivy; then
+        success "Trivy 已安装: $(trivy --version | head -1)"
+        return 0
+    fi
+    step "安装 Trivy"
+    if [ "$PKG_MANAGER" = "apt" ]; then
+        apt-get install -y wget apt-transport-https gnupg lsb-release 2>/dev/null
+        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor -o /usr/share/keyrings/trivy.gpg
+        echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" > /etc/apt/sources.list.d/trivy.list
+        apt-get update -qq && apt-get install -y trivy
+    else
+        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+    fi
+    success "Trivy 安装完成: $(trivy --version | head -1)"
+    echo "  扫描镜像: trivy image nginx"
+    echo "  扫描文件: trivy fs /path"
+    echo "  扫描代码: trivy repo https://github.com/xxx/xxx"
+}
+
+# ============================================================
+#  Gitleaks 密钥扫描
+# ============================================================
+security_gitleaks() {
+    header "安装 Gitleaks"
+    echo "  Git 仓库密钥泄露扫描"
+    if has_cmd gitleaks; then
+        success "Gitleaks 已安装"
+        return 0
+    fi
+    local arch_map
+    case "$ARCH" in x86_64) arch_map="x64" ;; aarch64) arch_map="arm64" ;; *) error "不支持"; return 1 ;; esac
+    local ver
+    ver="$(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep tag_name | cut -d'"' -f4)"
+    [ -z "$ver" ] && ver="v8.18.2"
+    curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/${ver}/gitleaks_${ver#v}_linux_${arch_map}.tar.gz" | tar -xz -C /usr/local/bin gitleaks
+    chmod +x /usr/local/bin/gitleaks
+    success "Gitleaks 安装完成"
+    echo "  扫描: gitleaks detect --source /path/to/repo -v"
+    echo "  无历史: gitleaks detect --no-git -s /path"
+}
+
+# ============================================================
+#  Semgrep 代码静态分析
+# ============================================================
+security_semgrep() {
+    header "安装 Semgrep"
+    echo "  代码静态安全分析（多语言）"
+    if has_cmd semgrep; then
+        success "Semgrep 已安装"
+        return 0
+    fi
+    pip3 install semgrep 2>/dev/null || {
+        pkg_install python3-pip && pip3 install semgrep
+    }
+    success "Semgrep 安装完成"
+    echo "  扫描: semgrep --config=auto /path/to/code"
+    echo "  规则集: semgrep --config=p/security-audit /path"
+}
+
+# ============================================================
+#  Snort 入侵检测
+# ============================================================
+security_snort() {
+    require_root || return 1
+    header "安装 Snort"
+    echo "  网络入侵检测系统(IDS/IPS)"
+    if has_cmd snort; then
+        success "Snort 已安装"
+        return 0
+    fi
+    step "安装 Snort"
+    pkg_install snort 2>/dev/null || warn "请手动安装 Snort"
+    success "Snort 安装完成"
+    echo "  测试: snort -T -c /etc/snort/snort.conf"
+    echo "  抓包模式: snort -i eth0 -c /etc/snort/snort.conf -A console"
+}
+
+# ============================================================
+#  ModSecurity WAF
+# ============================================================
+security_modsecurity() {
+    require_root || return 1
+    header "安装 ModSecurity WAF"
+    echo "  Web 应用防火墙（Nginx 模块）"
+    step "安装 ModSecurity"
+    if has_cmd nginx; then
+        pkg_install libmodsecurity3 modsecurity-crs 2>/dev/null || warn "请手动编译 Nginx + ModSecurity"
+        success "ModSecurity 安装完成"
+        echo "  配置文件: /etc/modsecurity/"
+        echo "  规则集: /usr/share/modsecurity-crs/"
+        echo "  Nginx 加载: load_module modules/ngx_http_modsecurity_module.so;"
+    else
+        warn "请先安装 Nginx"
+    fi
+}
+
+# ============================================================
+#  CrowdSec
+# ============================================================
+security_crowdsec() {
+    require_root || return 1
+    header "安装 CrowdSec"
+    echo "  现代化 Fail2ban 替代，社区驱动威胁情报"
+    if has_cmd cscli; then
+        success "CrowdSec 已安装"
+        cscli metrics 2>/dev/null | head -10
+        return 0
+    fi
+    step "安装 CrowdSec"
+    curl -fsSL https://packagecloud.io/install/repositories/crowdsec/crowdsec/script.deb.sh | bash 2>/dev/null
+    pkg_install crowdsec crowdsec-firewall-bouncer-iptables 2>/dev/null
+    systemctl enable --now crowdsec 2>/dev/null
+    success "CrowdSec 安装完成"
+    echo "  查看封禁: cscli decisions list"
+    echo "  查看告警: cscli alerts list"
+    echo "  安装集合: cscli collections install crowdsecurity/nginx"
+}
+
+# ============================================================
+#  Kube-bench
+# ============================================================
+security_kubebench() {
+    header "安装 Kube-bench"
+    echo "  K8s 安全合规检查（CIS Benchmark）"
+    if has_cmd kube-bench; then
+        success "kube-bench 已安装"
+        kube-bench run 2>/dev/null | head -20
+        return 0
+    fi
+    local arch_map
+    case "$ARCH" in x86_64) arch_map="amd64" ;; aarch64) arch_map="arm64" ;; *) error "不支持"; return 1 ;; esac
+    local ver
+    ver="$(curl -s https://api.github.com/repos/aquasecurity/kube-bench/releases/latest | grep tag_name | cut -d'"' -f4)"
+    [ -z "$ver" ] && ver="v0.7.3"
+    curl -fsSL "https://github.com/aquasecurity/kube-bench/releases/download/${ver}/kube-bench_${ver#v}_linux_${arch_map}.tar.gz" | tar -xz -C /usr/local/bin kube-bench
+    chmod +x /usr/local/bin/kube-bench
+    success "kube-bench 安装完成"
+    echo "  运行: kube-bench run"
+    echo "  指定节点: kube-bench run --targets node"
+}
+
 security_menu() {
     while true; do
         header "安全加固"
@@ -502,6 +669,14 @@ security_menu() {
         echo " 10) SSH登录告警"
         echo " 11) ClamAV 杀毒扫描"
         echo " 12) Wazuh 安全监控(XDR)"
+        echo " 13) OpenVAS 漏洞扫描"
+        echo " 14) Trivy 容器/代码扫描"
+        echo " 15) Gitleaks 密钥扫描"
+        echo " 16) Semgrep 代码分析"
+        echo " 17) Snort 入侵检测"
+        echo " 18) ModSecurity WAF"
+        echo " 19) CrowdSec 威胁防护"
+        echo " 20) Kube-bench K8s合规"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -519,6 +694,14 @@ security_menu() {
             10) security_ssh_alert; pause ;;
             11) security_clamav; pause ;;
             12) security_wazuh; pause ;;
+            13) security_openvas; pause ;;
+            14) security_trivy; pause ;;
+            15) security_gitleaks; pause ;;
+            16) security_semgrep; pause ;;
+            17) security_snort; pause ;;
+            18) security_modsecurity; pause ;;
+            19) security_crowdsec; pause ;;
+            20) security_kubebench; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac

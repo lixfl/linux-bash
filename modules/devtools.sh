@@ -210,7 +210,14 @@ devtools_menu() {
         echo " 16) k6 (压测)"
         echo " 17) K9s (K8s终端UI)"
         echo " 18) Helm (K8s包管理)"
-        echo " 19) 检查已安装工具"
+        echo " 19) Ansible (配置管理)"
+        echo " 20) Terraform (基础设施即代码)"
+        echo " 21) asdf (多语言版本管理)"
+        echo " 22) Verdaccio (私有npm)"
+        echo " 23) DevPi (私有PyPI)"
+        echo " 24) Adminer (数据库面板)"
+        echo " 25) DBeaver (数据库客户端)"
+        echo " 26) 检查已安装工具"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -234,7 +241,14 @@ devtools_menu() {
             16) devtools_k6; pause ;;
             17) devtools_k9s; pause ;;
             18) devtools_helm; pause ;;
-            19) devtools_check; pause ;;
+            19) devtools_ansible; pause ;;
+            20) devtools_terraform; pause ;;
+            21) devtools_asdf; pause ;;
+            22) devtools_verdaccio; pause ;;
+            23) devtools_devpi; pause ;;
+            24) devtools_adminer; pause ;;
+            25) devtools_dbeaver; pause ;;
+            26) devtools_check; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac
