@@ -172,7 +172,7 @@ server-toolkit/
 - 快速运行常用服务（Nginx/MySQL/Redis/PostgreSQL/MongoDB）
 
 ### 15. 机器人框架一键安装 (botframework)
-- 15 个主流框架：AstrBot / NoneBot2 / Koishi / Mirai / LangBot / qq-ai-bot / Yunzai / 早柚核心(gsuid_core) / Wechaty / nanobot / LobeChat / OpenClaw / Dify / n8n / Lagrange.Core
+- 16 个主流框架：AstrBot / NoneBot2 / Koishi / Mirai / LangBot / qq-ai-bot / Yunzai / 早柚核心(gsuid_core) / Wechaty / nanobot / LobeChat / OpenClaw / Dify / n8n / Lagrange.Core / NapCat
 - 自动配置运行环境（Python 3.10+ / Node.js 18+ / Java 17+ / Docker / .NET）
 - 自动安装 uv / pipx / npm 国内源
 - 分类展示：机器人框架 / AI平台工作流 / 协议端，每种框架提供 Docker 和原生两种部署方式

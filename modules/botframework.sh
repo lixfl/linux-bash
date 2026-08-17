@@ -630,6 +630,30 @@ botframework_lagrange() {
 }
 
 # ============================================================
+#  NapCat (OneBot 协议端)
+# ============================================================
+botframework_napcat() {
+    header "安装 NapCat"
+    echo "  NTQQ 协议端，基于 Lagrange.Core，提供 OneBot V11 API"
+    echo "  支持 Web UI 管理，兼容性好"
+    echo ""
+    _ensure_docker || return 1
+    mkdir -p "$BOT_BASE/napcat/config" "$BOT_BASE/napcat/data"
+
+    local port ws_port
+    port="$(ask "OneBot API 端口" "3001")"
+    ws_port="$(ask "WebSocket 端口" "6099")"
+    step "启动 NapCat"
+    docker run -d         --name napcat         -p "${port}:3001"         -p "${ws_port}:6099"         -e TZ=Asia/Shanghai         -e ACCOUNT=0         -e WS_ENABLE=true         -v "$BOT_BASE/napcat/config:/app/napcat/config"         -v "$BOT_BASE/napcat/data:/app/napcat/data"         --restart=unless-stopped         mlikiowa/napcat-docker:latest
+    sleep 5
+    success "NapCat 部署完成"
+    echo "  Web UI: http://$(hostname -I 2>/dev/null | awk '{print $1}'):${port}"
+    echo "  配置目录: $BOT_BASE/napcat/config"
+    echo "  首次启动后在 Web UI 中扫码登录"
+    echo "  日志: docker logs -f napcat"
+}
+
+# ============================================================
 #  12. Wechaty
 # ============================================================
 botframework_wechaty() {
@@ -738,7 +762,8 @@ botframework_menu() {
         echo "  ── 协议端 ──"
         echo " 15) Lagrange.Core (NTQQ OneBot协议端, Docker/二进制)"
         echo ""
-        echo " 16) 查看已安装状态"
+        echo " 16) NapCat       (NTQQ OneBot协议端, Docker, WebUI)"
+        echo " 17) 查看已安装状态"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -759,7 +784,8 @@ botframework_menu() {
             13) botframework_dify; pause ;;
             14) botframework_n8n; pause ;;
             15) botframework_lagrange; pause ;;
-            16) botframework_status; pause ;;
+            16) botframework_napcat; pause ;;
+            17) botframework_status; pause ;;
             0)  break ;;
             *)  warn "无效选项" ;;
         esac
