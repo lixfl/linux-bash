@@ -38,6 +38,9 @@ MODULES=(
     "docker:Docker管理"
     "botframework:机器人框架"
     "aiagent:AI Agent"
+    "aistack:AI应用栈"
+    "devops:DevOps工具"
+    "selfhost:自建服务"
     "reinstall:一键DD重装系统"
 )
 

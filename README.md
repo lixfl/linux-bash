@@ -53,7 +53,10 @@ server-toolkit/
 │   ├── docker.sh        # Docker 管理（安装/容器/镜像/Compose/快速部署）
 │   ├── yunzai.sh        # Yunzai机器人（Node环境/依赖/Valkey/Yunzai/NapCat/启动管理）
 │   ├── botframework.sh  # 机器人框架（AstrBot/NoneBot/Koishi/Mirai/LangBot/qq-ai-bot）
-│   ├── aiagent.sh       # AI Agent（DeepSeek Harness/Claude Code/Codex/Penguin/LangGraph/CrewAI/AutoGen）
+│   ├── aiagent.sh       # AI Agent（DeepSeek Harness/Claude Code/Codex等）
+│   ├── aistack.sh       # AI应用栈（OneAPI/Ollama/Open WebUI/FastGPT等）
+│   ├── devops.sh        # DevOps工具（Portainer/NPM/Uptime Kuma等）
+│   ├── selfhost.sh      # 自建服务（Alist/Vaultwarden/Jellyfin等）（DeepSeek Harness/Claude Code/Codex/Penguin/LangGraph/CrewAI/AutoGen）
 │   └── reinstall.sh     # 一键DD重装系统（Linux/Windows/Alpine/netboot.xyz）
 ├── backups/             # 备份文件默认存放目录
 └── logs/                # 日志与报告目录
@@ -184,7 +187,23 @@ server-toolkit/
 - Python 框架自动创建虚拟环境 + 示例代码
 - 统一项目目录 ~/ai-agents/，状态一键查看
 
-### 17. 一键 DD 重装系统 (reinstall)
+### 18. AI 应用栈 (aistack)
+- 7 个应用：OneAPI / new-api / Ollama / Open WebUI / FastGPT / MaxKB / RAGFlow
+- 分类展示：API中转 / 本地模型 / 前端知识库
+- Docker 一键部署，自动配置时区和数据卷
+- 统一数据目录 ~/ai-stack/，状态一键查看
+
+### 19. DevOps 可视化工具 (devops)
+- 5 个工具：Portainer / Nginx Proxy Manager / Uptime Kuma / Netdata / Glances
+- Docker 一键部署，自动配置时区和数据卷
+- 统一数据目录 ~/devops/，状态一键查看
+
+### 20. 自建服务 (selfhost)
+- 6 个服务：Alist / FileBrowser / Vaultwarden / Jellyfin / Memos / Gitea
+- Docker 一键部署，自动配置时区和数据卷
+- 统一数据目录 ~/selfhost/，状态一键查看
+
+### 21. 一键 DD 重装系统 (reinstall)
 > ⚠️ 危险操作：将清除整个硬盘所有数据！
 
 - 重装为 Linux（Ubuntu/Debian/CentOS/Rocky/Alma/Alpine/Arch/Kali 等 12 种）

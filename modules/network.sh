@@ -142,9 +142,118 @@ network_connections() {
     fi
 }
 
+
+# ============================================================
+#  Frp 内网穿透
+# ============================================================
+network_frp() {
+    header "Frp 内网穿透"
+    echo "  快速反向代理，将内网服务暴露到公网"
+    echo ""
+    echo "  1) 安装 frps (服务端，公网服务器运行)"
+    echo "  2) 安装 frpc (客户端，内网机器运行)"
+    echo "  0) 返回"
+    local opt
+    opt="$(ask "选择" "0")"
+    case "$opt" in
+        1) _frp_install "frps" ;;
+        2) _frp_install "frpc" ;;
+        0) return 0 ;;
+        *) warn "无效选项" ;;
+    esac
+}
+
+_frp_install() {
+    local role="$1"
+    local ver
+    ver="$(curl -s https://api.github.com/repos/fatedier/frp/releases/latest | grep tag_name | cut -d'"' -f4 | sed 's/v//')"
+    [ -z "$ver" ] && ver="0.61.0"
+    local arch_map
+    case "$ARCH" in
+        x86_64)  arch_map="amd64" ;;
+        aarch64) arch_map="arm64" ;;
+        *)       error "不支持的架构: $ARCH"; return 1 ;;
+    esac
+    local dl="https://github.com/fatedier/frp/releases/download/v${ver}/frp_${ver}_linux_${arch_map}.tar.gz"
+    step "下载 frp v${ver} (${arch_map})"
+    cd /tmp || return 1
+    curl -fL "$dl" -o frp.tar.gz 2>/dev/null || {
+        warn "GitHub下载失败，尝试镜像..."
+        curl -fL "https://ghproxy.net/$dl" -o frp.tar.gz 2>/dev/null || { error "下载失败"; return 1; }
+    }
+    tar -xzf frp.tar.gz
+    cd "frp_${ver}_linux_${arch_map}" || return 1
+    cp "$role" /usr/local/bin/
+    chmod +x "/usr/local/bin/$role"
+    mkdir -p /etc/frp
+    [ -f "${role}.toml" ] && cp "${role}.toml" /etc/frp/
+    rm -rf /tmp/frp.tar.gz /tmp/frp_${ver}_linux_${arch_map}
+
+    # systemd 服务
+    cat > "/etc/systemd/system/${role}.service" <<EOF
+[Unit]
+Description=frp ${role}
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/${role} -c /etc/frp/${role}.toml
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload 2>/dev/null
+    svc_enable "$role" 2>/dev/null
+    success "frp ${role} 安装完成: /usr/local/bin/${role}"
+    echo "  配置文件: /etc/frp/${role}.toml"
+    echo "  管理: systemctl start/stop/restart ${role}"
+    info "编辑配置后执行: systemctl restart ${role}"
+}
+
+# ============================================================
+#  Tailscale 虚拟组网
+# ============================================================
+network_tailscale() {
+    header "安装 Tailscale"
+    echo "  零配置虚拟组网，安全连接多台设备"
+    echo ""
+    if has_cmd tailscale; then
+        success "Tailscale 已安装: $(tailscale version 2>/dev/null | head -1)"
+        echo ""
+        echo "  1) 登录/启动 (tailscale up)"
+        echo "  2) 查看状态"
+        echo "  3) 退出登录"
+        local opt
+        opt="$(ask "选择" "1")"
+        case "$opt" in
+            1) tailscale up ;;
+            2) tailscale status ;;
+            3) tailscale logout ;;
+        esac
+        return 0
+    fi
+    step "运行官方安装脚本"
+    curl -fsSL https://tailscale.com/install.sh | sh || {
+        warn "官方脚本失败，尝试包管理器安装"
+        pkg_install tailscale
+    }
+    svc_enable tailscaled 2>/dev/null
+    svc_start tailscaled 2>/dev/null
+    if has_cmd tailscale; then
+        success "Tailscale 安装完成"
+        echo "  启动登录: tailscale up"
+        echo "  查看状态: tailscale status"
+        echo "  查看IP: tailscale ip -4"
+    else
+        error "安装失败，请手动安装: https://tailscale.com/download"
+    fi
+}
+
 network_menu() {
     while true; do
-        header "网络诊断"
+        header "网络诊断与工具"
         echo "  1) 连通性测试 (ping)"
         echo "  2) DNS 诊断"
         echo "  3) 端口检测"
@@ -152,6 +261,8 @@ network_menu() {
         echo "  5) TCP 连接统计"
         echo "  6) 路由追踪"
         echo "  7) 网速测试"
+        echo "  8) Frp 内网穿透"
+        echo "  9) Tailscale 虚拟组网"
         echo "  0) 返回主菜单"
         echo ""
         local choice
@@ -164,6 +275,8 @@ network_menu() {
             5) network_connections; pause ;;
             6) network_traceroute; pause ;;
             7) network_speedtest; pause ;;
+            8) network_frp; pause ;;
+            9) network_tailscale; pause ;;
             0) break ;;
             *) warn "无效选项" ;;
         esac
