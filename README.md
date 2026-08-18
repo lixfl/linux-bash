@@ -15,7 +15,7 @@
 ```bash
 # 克隆或上传到服务器
 git clone https://github.com/lixfl/linux-bash.git
-cd server-toolkit
+cd linux-bash
 
 # 添加执行权限
 chmod +x main.sh modules/*.sh
